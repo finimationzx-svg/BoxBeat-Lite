@@ -29,7 +29,17 @@
   #tabs{ display:flex; gap:4px; }
   #selName{ flex:1; text-align:right; font-size:12px; color:var(--acc);
             overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-  #bUndo,#bUIHide{ flex:none; padding:8px 10px; font-size:15px; }
+  #bUndo,#bUIHide,#bFile{ flex:none; padding:8px 10px; font-size:15px; }
+  @media (max-width:430px){ #top{ gap:5px; padding:0 6px; } #top button{ padding:8px 9px; }
+    #bUndo,#bUIHide,#bFile{ padding:8px 7px; } }
+  /* ── ท่าแอนิเมชันหลายท่า (แถบเหนือไทม์ไลน์) ── */
+  #bAnim{ width:100%; margin-bottom:6px; padding:6px 10px; font-size:12px; text-align:left;
+          display:flex; align-items:center; gap:6px; background:#22283a; }
+  #bAnim b{ flex:1; color:var(--acc); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  #bAnim span{ color:var(--dim); font-size:11px; }
+  input[type=text]{ width:100%; padding:10px; font:inherit; font-size:14px; color:var(--txt);
+                    background:#101319; border:1px solid var(--line); border-radius:9px; }
+  #animList button.on{ border-color:var(--acc); }
 
   #bottom{ position:fixed; z-index:30; left:0; right:0; bottom:0;
            display:flex; flex-direction:column; pointer-events:none;
@@ -97,7 +107,7 @@
   .mk.ikj{ width:10px; height:10px; background:#b07cff; border:1.5px solid #15171d; border-radius:50%; }
   .mk.root{ background:#ffe066; border:2px solid #15171d; border-radius:2px; }
   #ctrlMarks{ position:fixed; inset:0; z-index:19; pointer-events:none; display:none; }
-  body.pose #ctrlMarks{ display:block; }
+  body.pose:not(.noLegend) #ctrlMarks{ display:block; }   /* ปิดกล่องคำอธิบาย = ซ่อนเครื่องหมายด้วย */
   .cm{ position:absolute; transform:translate(-50%,-50%); opacity:.9; }
   .cm.ik{ transform:translate(-50%,-50%) rotate(45deg); }
   .cm.sel{ opacity:1; box-shadow:0 0 0 3px #fff8; }
@@ -255,6 +265,7 @@
   <div id="selName">—</div>
   <button id="bUndo" title="ย้อนกลับ (Ctrl+Z)">↺</button>
   <button id="bUIHide" title="ซ่อนจุดหมุน/gizmo บนโมเดล">👁</button>
+  <button id="bFile" title="บันทึก / เปิดไฟล์ / ส่งออก">💾</button>
 </div>
 
 <div id="stat"></div>
@@ -266,14 +277,14 @@
 </div>
 <div id="ctrlMarks"></div>
 <div id="ctrlLegend" title="แตะเพื่ออ่านว่า IK / FK คืออะไร">
-  <div class="lh"><span>จุดควบคุม</span><span class="lx" data-lg="hide">✕</span></div>
+  <div class="lh"><span>จุดควบคุม</span><span class="lx" data-lg="hide" title="ซ่อนจุดควบคุม">✕</span></div>
   <div><i class="mk fk"></i>FK — หมุนทีละข้อ</div>
   <div><i class="mk ik"></i>IK — ลากปลาย ข้อพับเอง</div>
   <div><i class="mk ikj"></i>ข้อที่ IK หมุนให้</div>
   <div><i class="mk root"></i>ราก — ย้ายทั้งตัว</div>
   <div class="lk">📖 IK กับ FK ต่างกันยังไง?</div>
 </div>
-<button id="bLegend" title="แสดงคำอธิบายจุดควบคุม">○◆ ?</button>
+<button id="bLegend" title="แสดงจุดควบคุม FK/IK และคำอธิบาย">○◆ ?</button>
 <div id="learn"><div id="learnIn">
   <div id="lHead"><span class="t">📖 เรียนรู้ 3D</span><button id="bLearnClose">✕ กลับไปทำงาน</button></div>
   <h1>มาเรียน 3D กันเถอะ!</h1>
@@ -324,6 +335,7 @@
   </div>
 
   <div id="tl">
+    <button id="bAnim" title="เลือก / เพิ่มท่าแอนิเมชัน">🎞 <b id="vAnim">ท่า 1</b><span id="vAnimN">1 ท่า ▾</span></button>
     <div id="tlBtns">
       <button data-t="pk">◀◆</button><button data-t="pf">◀</button>
       <button data-t="play">▶</button><button data-t="nf">▶</button>
@@ -389,6 +401,7 @@
   </div>
   <div id="startFoot">
     <button id="bResume">กลับไปงานที่ทำค้างไว้</button>
+    <button data-a="openfile" id="bOpenStart">📂 เปิดไฟล์โปรเจกต์ (.boxbeat)…</button>
   </div>
   <div id="credits">
     <div id="crLine">พัฒนาโดย <b>finimationzx</b> ร่วมกับ <b>Claude</b> · <span id="crTog">เครดิต ▾</span></div>
@@ -520,11 +533,36 @@
     <div class="lb">ขนาดจุดควบคุม <b id="vLoc">0.08</b></div>
     <input type="range" id="sLoc" min="0.03" max="0.2" step="0.01" value="0.08">
     <h3>ไฟล์</h3>
-    <button data-a="expglb" style="width:100%;margin-bottom:6px">💾 บันทึกเป็นไฟล์ .glb (มีแอนิเมชัน)</button>
-    <div class="note">ไฟล์ .glb เป็นไฟล์ 3D มาตรฐาน เปิดดูหรือใช้ต่อในโปรแกรม/เกมเอนจินอื่นได้ เช่น Blender, Windows 3D Viewer</div>
-    <button data-a="clear" style="width:100%;margin-top:6px">ล้างงานที่บันทึกไว้</button>
-    <div class="note" id="saveInfo">—</div>
+    <button data-a="filesheet" style="width:100%;margin-bottom:6px">💾 บันทึก / เปิดไฟล์ / ส่งออก…</button>
+    <button data-a="clear" style="width:100%">ล้างงานที่บันทึกไว้ในเครื่อง</button>
   </div>
+
+  <div class="sh" id="shFile">
+    <h3>บันทึกงาน</h3>
+    <button data-a="savefile" style="width:100%">💾 บันทึกไฟล์โปรเจกต์ (.boxbeat)</button>
+    <button data-a="openfile" style="width:100%;margin-top:6px">📂 เปิดไฟล์โปรเจกต์…</button>
+    <div class="note" id="saveInfo">—</div>
+    <div class="note">แอปบันทึกอัตโนมัติไว้ในเบราว์เซอร์เครื่องนี้อยู่แล้ว แต่ถ้าล้างข้อมูลเบราว์เซอร์หรือเปลี่ยนเครื่อง งานจะหาย — บันทึกเป็นไฟล์เก็บไว้ด้วยจะปลอดภัยที่สุด และเอาไปเปิดต่อในเครื่องอื่นได้</div>
+    <h3>ส่งออกไปใช้ที่อื่น</h3>
+    <button data-a="expglb" style="width:100%">🧊 ส่งออก .glb — ตัวละคร + ทุกท่า</button>
+    <div class="note">ไฟล์ 3D มาตรฐาน ใช้ในเกมเอนจิน (Unity, Godot, Roblox ฯลฯ) หรือ Blender ได้ — ทุกท่าในโปรเจกต์อยู่ในไฟล์เดียว แยกตามชื่อท่า</div>
+    <button data-a="expbvh" style="width:100%;margin-top:6px">🦴 ส่งออก .bvh — ท่า "<span id="vBvhAnim">ท่า 1</span>"</button>
+    <div class="note">BVH เก็บเฉพาะกระดูกกับการเคลื่อนไหว (ไม่มีกล่องและสี) 1 ไฟล์ = 1 ท่า ใช้ย้ายท่าไปใส่ตัวละครอื่นใน Blender หรือโปรแกรมแอนิเมชันอื่น</div>
+  </div>
+
+  <div class="sh" id="shAnim">
+    <h3>ท่าทั้งหมดในโปรเจกต์</h3>
+    <div class="lst" id="animList"></div>
+    <div class="lb">ชื่อท่านี้</div>
+    <input type="text" id="animName" maxlength="40" placeholder="เช่น เดิน วิ่ง กระโดด">
+    <div class="g2" style="grid-template-columns:repeat(3,1fr);margin-top:8px">
+      <button data-a="animnew">＋ ท่าใหม่</button>
+      <button data-a="animdup">⧉ ทำสำเนา</button>
+      <button data-a="animdel">🗑 ลบท่านี้</button>
+    </div>
+    <div class="note">ตัวละครหนึ่งตัวมีได้หลายท่า เช่น ยืน · เดิน · วิ่ง · กระโดด แต่ละท่ามีไทม์ไลน์และคีย์เฟรมของตัวเอง เกมจะสลับเล่นท่าตามที่ผู้เล่นกด — ตอนส่งออก .glb ทุกท่าจะอยู่ในไฟล์เดียว</div>
+  </div>
+  <input type="file" id="fProj" accept=".boxbeat,.json,application/json" style="display:none">
 </div>
 
 <script type="module">
@@ -762,7 +800,10 @@ const TPL_MSG={ cube:'แตะหน้ากล่องแล้วกด ＋
 
 /* ═════ STATE ═════ */
 // ความเร็วคลิป = ความยาวคลิป ÷ div (div 1 = ครบคลิปใน 1 วินาที) — fps คำนวณเสมอ ไม่เก็บแยก
-const clip={ len:24, div:1, interp:'linear', keys:[], get fps(){ return this.len/this.div; } };
+// โปรเจกต์มีได้หลายท่า (anims) — clip = ท่าที่กำลังแก้อยู่ (ทุกส่วนของแอปใช้ clip ตัวนี้)
+const newAnim=(name,o)=>({ name, len:(o&&o.len)||24, div:(o&&o.div)||1, interp:(o&&o.interp)||'linear',
+  keys:o&&o.keys?JSON.parse(JSON.stringify(o.keys)):[], get fps(){ return this.len/this.div; } });
+let anims=[newAnim('ท่า 1')], clip=anims[0];
 let rig=tplBiped();
 let mode='build', selPart=null, selFace=-1, reparentWait=null, mirrorWait=null;
 let frame=0, playing=false, autoKey=true, clipboard=null, rotStep=15;
@@ -772,16 +813,26 @@ function serialize(){ return { v:11,
   parts:[...rig.parts.values()].map(p=>({id:p.id,name:p.name,parent:p.parent,attachFace:p.attachFace,
     dir:p.dir,size:p.size,shift:p.shift,boxOff:p.boxOff,hue:p.hue,rest:p.rest.toArray(),
     ikChain:p.ikChain,pinned:p.pinned,pinPos:p.pinPos,noMesh:p.noMesh,poleDir:p.poleDir,spline:p.spline})),
-  clip:{len:clip.len,div:clip.div,fps:clip.fps,interp:clip.interp,keys:clip.keys} }; }
+  clip:{len:clip.len,div:clip.div,fps:clip.fps,interp:clip.interp,keys:clip.keys},
+  anims:anims.map(a=>({name:a.name,len:a.len,div:a.div,interp:a.interp,keys:a.keys})),
+  animIdx:anims.indexOf(clip) }; }
 function deserialize(o){
   if(!o||!o.parts) throw new Error('ไม่ใช่ไฟล์ของแอปนี้');
   rig=new Rig();
   for(const p of o.parts) rig.add({...p,rest:new THREE.Quaternion().fromArray(p.rest||[0,0,0,1])});
   pendingEdge=null; updateEdgeHi();
-  if(o.clip){ clip.len=o.clip.len||24;
-    // ไฟล์เก่าเก็บ fps ตรงๆ → แปลงเป็นตัวหารที่ใกล้ที่สุด (1–4)
-    clip.div=o.clip.div||Math.max(1,Math.min(4,Math.round(clip.len/(o.clip.fps||clip.len))));
-    clip.interp=o.clip.interp||(o.clip.step?'step':'linear'); clip.keys=o.clip.keys||[]; }
+  if(o.anims&&o.anims.length){
+    anims=o.anims.map((a,i)=>newAnim(a.name||('ท่า '+(i+1)),a));
+    clip=anims[Math.min(Math.max(0,o.animIdx|0),anims.length-1)];
+  } else {
+    // ไฟล์รุ่นก่อนมีท่าเดียว (o.clip)
+    anims=[newAnim('ท่า 1')]; clip=anims[0];
+    if(o.clip){ clip.len=o.clip.len||24;
+      // ไฟล์เก่าเก็บ fps ตรงๆ → แปลงเป็นตัวหารที่ใกล้ที่สุด (1–4)
+      clip.div=o.clip.div||Math.max(1,Math.min(4,Math.round(clip.len/(o.clip.fps||clip.len))));
+      clip.interp=o.clip.interp||(o.clip.step?'step':'linear'); clip.keys=o.clip.keys||[]; }
+  }
+  syncAnimUI();
   selPart=null; selFace=-1; frame=0; playing=false; stripSig=''; syncSet(); evalAt(0);
 }
 
@@ -1677,7 +1728,7 @@ const closeStart=()=>document.body.classList.remove('start');
 function applyTemplate(name){
   const fn=TPL[name]; if(!fn) return;
   if(rig.parts.size) commit();
-  rig=fn(); clip.keys=[]; stripSig=''; frame=0; playing=false;
+  rig=fn(); anims=[newAnim('ท่า 1')]; clip=anims[0]; syncSet(); syncAnimUI(); stripSig=''; frame=0; playing=false;
   pendingEdge=null; updateEdgeHi();
   selPart = (name==='cube') ? 0 : null;
   selFace = (name==='cube') ? 2 : -1;
@@ -1761,10 +1812,10 @@ function setLegend(on){ document.body.classList.toggle('noLegend',!on);
   try{ localStorage.setItem('boxbeat.legend',on?'1':'0'); }catch(e){} }
 try{ if(localStorage.getItem('boxbeat.legend')==='0') document.body.classList.add('noLegend'); }catch(e){}
 $('ctrlLegend').onclick=e=>{
-  if(e.target.closest('[data-lg="hide"]')){ setLegend(false); say('ซ่อนคำอธิบายแล้ว — กด ○◆ ? เพื่อเปิดอีกครั้ง'); return; }
+  if(e.target.closest('[data-lg="hide"]')){ setLegend(false); say('ซ่อนจุดควบคุมแล้ว — กด ○◆ ? มุมซ้ายบนเพื่อแสดงอีกครั้ง'); return; }
   openLearn('ikfk');
 };
-$('bLegend').onclick=()=>setLegend(true);
+$('bLegend').onclick=()=>{ setLegend(true); say('แสดงจุดควบคุมแล้ว'); };
 function selStep(d){
   const o=rig.order(); if(!o.length) return;
   let i=o.findIndex(p=>p.id===selPart);
@@ -2470,6 +2521,11 @@ $('sheet').addEventListener('click',e=>{
     case 'wire': toggleWire(); break;
     case 'piv': togglePiv(); break;
     case 'expglb': expGlb(); break;
+    case 'expbvh': expBvh(); break;
+    case 'filesheet': openSheet('shFile'); break;
+    case 'savefile': saveProjectFile(); break;
+    case 'openfile': openProjectFile(); break;
+    case 'animnew': case 'animdup': case 'animdel': animAction(a); break;
     case 'clear': localStorage.removeItem(KEY); say('ล้างแล้ว');
       $('saveInfo').textContent='ล้างข้อมูลที่บันทึกแล้ว'; break;
   }
@@ -2576,6 +2632,72 @@ function setMode(m){
 $('tB').onclick=()=>setMode('build');
 $('tP').onclick=()=>setMode('pose');
 
+/* ═════ หลายท่า (anims) ═════ */
+function uniqueAnimName(base,self){ let n=base,i=2; while(anims.some(a=>a!==self&&a.name===n)) n=base+' '+(i++); return n; }
+function setAnim(i){
+  if(i<0||i>=anims.length) return;
+  stopPlay(); clip=anims[i]; frame=0; stripSig='';
+  if(clip.keys.length) evalAt(0);
+  syncSet(); syncAnimUI(); refreshAll(); save();
+}
+function syncAnimUI(){
+  $('vAnim').textContent=clip.name; $('vAnimN').textContent=anims.length+' ท่า ▾';
+  $('vBvhAnim').textContent=clip.name;
+  const L=$('animList'); L.innerHTML='';
+  anims.forEach((a,i)=>{ const b=document.createElement('button'); b.dataset.anim=i;
+    b.textContent=(a===clip?'▶ ':'')+a.name+'  · '+a.keys.length+' คีย์ · '+a.len+' เฟรม';
+    if(a===clip) b.classList.add('on'); L.appendChild(b); });
+  const n=$('animName'); if(document.activeElement!==n) n.value=clip.name;
+}
+$('bAnim').onclick=()=>{ syncAnimUI(); openSheet('shAnim'); };
+$('animList').onclick=e=>{ const b=e.target.closest('button[data-anim]'); if(!b) return;
+  setAnim(+b.dataset.anim); say('ท่า: '+clip.name); };
+$('animName').onchange=()=>{ const v=$('animName').value.trim();
+  if(!v||v===clip.name){ $('animName').value=clip.name; return; }
+  commit(); clip.name=uniqueAnimName(v,clip); syncAnimUI(); save(); say('เปลี่ยนชื่อเป็น "'+clip.name+'"'); };
+function animAction(a){
+  const i=anims.indexOf(clip);
+  if(a==='animnew'){ commit();
+    const n=newAnim(uniqueAnimName('ท่า '+(anims.length+1)),{len:clip.len,div:clip.div,interp:clip.interp});
+    anims.push(n); setAnim(anims.length-1);
+    say('เพิ่ม "'+n.name+'" แล้ว — ตั้งท่าแล้วกด ◆ หรือกด ★ ขยับอัตโนมัติ'); }
+  if(a==='animdup'){ commit();
+    const n=newAnim(uniqueAnimName(clip.name+' สำเนา'),clip);
+    anims.splice(i+1,0,n); setAnim(i+1); say('ทำสำเนาเป็น "'+n.name+'" แล้ว'); }
+  if(a==='animdel'){
+    if(anims.length<2){ say('ต้องมีอย่างน้อย 1 ท่า'); return; }
+    commit(); const nm=clip.name; anims.splice(i,1); setAnim(Math.min(i,anims.length-1));
+    say('ลบ "'+nm+'" แล้ว (↺ ย้อนได้)'); }
+}
+
+/* ═════ ไฟล์โปรเจกต์ (.boxbeat) — บันทึก/เปิดเอง ข้ามเครื่องได้ ═════ */
+function fileStamp(){ const d=new Date(), z=n=>String(n).padStart(2,'0');
+  return d.getFullYear()+z(d.getMonth()+1)+z(d.getDate())+'-'+z(d.getHours())+z(d.getMinutes()); }
+function dlText(text,name,type){ const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000); }
+const safeFileName=s=>s.replace(/[\\/:*?"<>|]+/g,'_').trim()||'boxbeat';
+function saveProjectFile(){
+  save();
+  dlText(JSON.stringify({app:'BoxBeat',...serialize()}),'boxbeat-'+fileStamp()+'.boxbeat','application/json');
+  say('บันทึกไฟล์โปรเจกต์แล้ว — อยู่ในโฟลเดอร์ดาวน์โหลด');
+}
+function openProjectFile(){ $('fProj').value=''; $('fProj').click(); }
+$('fProj').addEventListener('change',async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const o=JSON.parse(await f.text());
+    if(!o||!o.parts) throw new Error('ไม่ใช่ไฟล์โปรเจกต์ BoxBeat');
+    if(rig.parts.size) commit();
+    deserialize(o); closeSheet(); closeStart(); setMode('build'); refreshAll(); save();
+    say('เปิด "'+f.name+'" แล้ว — มี '+anims.length+' ท่า');
+  }catch(err){ say('เปิดไฟล์ไม่ได้: '+(err.message||err)); }
+});
+$('bOpenStart').onclick=openProjectFile;
+$('bFile').onclick=()=>{
+  if(document.body.classList.contains('sheet')&&$('shFile').classList.contains('act')) closeSheet();
+  else openSheet('shFile'); };
+
 /* ═════ เรียนรู้ 3D (บทเรียนสั้นๆ สำหรับมือใหม่/เด็ก: อ่าน → ลองในแอป → ตอบคำถามเก็บดาว) ═════ */
 const SV=b=>'<svg viewBox="0 0 320 150" font-family="sans-serif" font-size="12">'+b+'</svg>';
 const TX=(x,y,t,c,s,a)=>`<text x="${x}" y="${y}" fill="${c||'#dde2ec'}" font-size="${s||12}" text-anchor="${a||'middle'}" font-weight="700">${t}</text>`;
@@ -2667,7 +2789,7 @@ const LESSONS=[
      ${[[40,70,1],[100,45,.3],[160,30,1],[220,45,.3],[280,70,1]].map(([x,y,o])=>`<g opacity="${o}"><circle cx="${x}" cy="${y}" r="9" fill="#d79a6a"/><rect x="${x-8}" y="${y+11}" width="16" height="22" fill="#5f8fd0"/></g>`).join('')}
      ${TX(40,146,'คีย์ ◆','#e0703a',10)}${TX(160,146,'คีย์ ◆','#e0703a',10)}${TX(280,146,'คีย์ ◆','#e0703a',10)}
      ${TX(100,100,'เติมให้','#8791a5',9)}${TX(220,100,'เติมให้','#8791a5',9)}`),
-   ex:'💡 แถบด้านล่างในโหมดท่าทางคือไทม์ไลน์ · เพชรสีส้ม ◆ คือคีย์เฟรม · กด ▶ เพื่อเล่นดูผลงาน',
+   ex:'💡 แถบด้านล่างในโหมดท่าทางคือไทม์ไลน์ · เพชรสีส้ม ◆ คือคีย์เฟรม · กด ▶ เพื่อเล่นดูผลงาน<br>🎞 แตะชื่อท่าเหนือไทม์ไลน์เพื่อเพิ่มท่าใหม่ เช่น ยืน เดิน กระโดด — ตัวละครในเกมมีหลายท่าแบบนี้แหละ',
    tryTxt:'◆ ไปลองตั้งคีย์เฟรม',
    tryFn(){ setMode('pose'); say('ตั้งท่า → กด ◆ · เลื่อนไปเฟรมอื่น ตั้งท่าใหม่ → กด ◆ · แล้วกด ▶'); },
    q:'แอนิเมชันยาว 48 เฟรม ที่ 24 เฟรมต่อวินาที จะยาวกี่วินาที?', ch:['2 วินาที','1 วินาที','24 วินาที'], ok:0,
@@ -2964,29 +3086,137 @@ function buildAnimationClip(bake){
   const tracks=[];
   for(const bt of bake.bodyTracks){
     const interpMode=bt.step?THREE.InterpolateDiscrete:THREE.InterpolateLinear;
-    const name='p_'+bt.partId, pivot=rig.pivotOf(rig.parts.get(bt.partId));
+    const part=rig.parts.get(bt.partId), name='p_'+bt.partId, pivot=rig.pivotOf(part);
     const posVals=bt.offs.map((val,idx)=>val+pivot[idx%3]);
-    tracks.push(new THREE.QuaternionKeyframeTrack(name+'.quaternion',bt.times,bt.quats,interpMode));
+    // node หมุน = rest·rot (เหมือน rig.worlds) — คีย์เก็บแค่ rot จึงต้องคูณการเอียงตอนปั้นเข้าไปด้วย
+    const qv=bt.quats.slice(), tq=new THREE.Quaternion();
+    for(let i=0;i<qv.length;i+=4) tq.fromArray(qv,i).premultiply(part.rest).toArray(qv,i);
+    tracks.push(new THREE.QuaternionKeyframeTrack(name+'.quaternion',bt.times,qv,interpMode));
     tracks.push(new THREE.VectorKeyframeTrack(name+'.position',bt.times,posVals,interpMode));
   }
   for(const t of bake.tails||[]) t.bones.forEach((b,k)=>
     tracks.push(new THREE.QuaternionKeyframeTrack(`tail_${t.partId}_b${k}.quaternion`,b.times,b.quats,THREE.InterpolateLinear)));
   return tracks.length?new THREE.AnimationClip('Action',-1,tracks):null;
 }
+// bake ท่าอื่นที่ไม่ได้เปิดอยู่: สลับ clip ชั่วคราว แล้วคืนค่า
+function bakeFor(a){ if(a===clip) return bakeAll();
+  const prev=clip; clip=a; try{ return bakeAll(); } finally{ clip=prev; stripSig=''; } }
 function dlBinary(buf,n){ const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([buf],{type:'model/gltf-binary'})); a.download=n; a.click(); }
 function expGlb(){
-  const baked=bakeAll();
+  // ทุกท่าในโปรเจกต์ → AnimationClip แยกชื่อ (ท่าที่ยังไม่มีคีย์ข้ามไป ถ้ามีหลายท่า)
+  const list=anims.filter(a=>a===clip||a.keys.length||anims.length===1);
+  const bakes=list.map(a=>({a,b:bakeFor(a)}));
+  const baked=bakes.find(x=>x.a===clip).b;
   const savedPose=poseSnap(), savedFrame=frame;
   try{
     const {root,nodes}=buildExportBody(clip.keys.length>=2?0:null);
     for(const q of rig.parts.values()) if(q.spline){ const mesh=buildExportTail(q,baked,nodes); if(mesh) root.add(mesh); }
-    const clipObj=buildAnimationClip(baked);
+    const clips=[];
+    for(const {a,b} of bakes){
+      // หลายท่า: ชิ้นที่ท่านี้ไม่ได้ขยับ ใส่ท่านิ่งไว้ด้วย ไม่งั้นเกมจะค้างท่าจากท่าก่อนหน้า
+      if(bakes.length>1){ const have=new Set(b.bodyTracks.map(t=>t.partId));
+        for(const p of rig.parts.values()) if(!have.has(p.id))
+          b.bodyTracks.push({ partId:p.id, times:[0], quats:[0,0,0,1], offs:[0,0,0], step:false }); }
+      const c=buildAnimationClip(b); if(c){ c.name=a.name; clips.push(c); }
+    }
     new GLTFExporter().parse(root,
-      glb=>{ dlBinary(glb,'boxbeat.glb'); say('บันทึก .glb แล้ว'); },
+      glb=>{ dlBinary(glb,'boxbeat-'+fileStamp()+'.glb'); say('ส่งออก .glb แล้ว — '+clips.length+' ท่า'); },
       err=>{ console.error(err); say('ส่งออก .glb ไม่สำเร็จ'); },
-      { binary:true, animations: clipObj?[clipObj]:[] });
-  } finally { applyPose(savedPose); frame=savedFrame; refreshAll(); }
+      { binary:true, animations:clips });
+  } finally { applyPose(savedPose); frame=savedFrame; stripSig=''; refreshAll(); }
+}
+
+/* ═════ ส่งออก BVH (ท่าที่เลือกอยู่) ═════
+   ท่าตั้งต้น (bind) = ทุกข้อหมุน 0 · OFFSET = ระยะจุดหมุนจากแม่ในท่าปั้น (แกนโลก)
+   ต่อเฟรม: การหมุนของข้อเทียบท่าปั้น Rb = Qworld·Qrest⁻¹ แล้วแปลงเป็นค่าท้องถิ่น Rb(แม่)⁻¹·Rb
+   ช่อง ZXY (องศา) · ราก + ข้อที่มีการเลื่อนตำแหน่ง (เช่นจุด IK) ได้ช่องตำแหน่งด้วย */
+const BVH_WORDS=[['จะงอยปาก','Beak'],['คอนโทรล','Ctrl'],['ขาหน้า','FrontLeg'],['ขาหลัง','BackLeg'],
+  ['แขนบน','UpperArm'],['แขนล่าง','LowerArm'],['ต้นแขน','UpperArm'],['ขาบน','UpperLeg'],['ขาล่าง','LowerLeg'],
+  ['ต้นขา','Thigh'],['ลำตัว','Body'],['สะโพก','Hips'],['ซ้าย','Left'],['ขวา','Right'],['หัว','Head'],['คอ','Neck'],
+  ['แขน','Arm'],['มือ','Hand'],['ขา','Leg'],['เท้า','Foot'],['หาง','Tail'],['ปีก','Wing'],['ครีบ','Fin'],
+  ['ปล้อง','Seg'],['ท้อง','Belly'],['ปาก','Mouth'],['เขา','Horn'],['หนวด','Antenna'],['หน้า','Front'],
+  ['หลัง','Back'],['บน','Upper'],['ล่าง','Lower'],['ตัว','Body']];
+function bvhName(p,used){
+  let s=p.name; for(const [th,en] of BVH_WORDS) s=s.split(th).join(en);
+  s=s.replace(/[^A-Za-z0-9_]/g,''); if(!s||/^[0-9]/.test(s)) s='J'+p.id+s;
+  let n=s,i=2; while(used.has(n)) n=s+'_'+(i++); used.add(n); return n;
+}
+function expBvh(){
+  // จุดควบคุม IK (ไม่มีกล่อง ไม่มีลูก) เป็นแค่ตัวช่วยลาก ไม่ใช่กระดูก — ผลของมันอยู่ในการหมุนของข้อแม่แล้ว
+  const keep=p=>!(p.noMesh&&!rig.kids(p.id).length);
+  const parts=rig.order().filter(keep); if(!parts.length){ say('ยังไม่มีชิ้นส่วน'); return; }
+  const savedPose=poseSnap(), savedFrame=frame;
+  try{
+    // ท่าปั้น (rot 0, off 0)
+    for(const p of parts){ p.rot.identity(); p.off.set(0,0,0); }
+    const R=rig.worlds(), P0=new Map(), Q0=new Map();
+    for(const p of parts){ P0.set(p.id,new THREE.Vector3().setFromMatrixPosition(R.W.get(p.id))); Q0.set(p.id,R.Q.get(p.id).clone()); }
+    applyPose(savedPose);
+    // เก็บค่าทุกเฟรม
+    const fps=clip.fps, N=clip.keys.length>=2?Math.max(1,Math.round(clip.len))+1:1;
+    const isRoot=p=>p.parent==null||!rig.parts.has(p.parent);
+    const roots=parts.filter(isRoot), multiRoot=roots.length>1;
+    const frames=[];   // ต่อเฟรม: Map id → {q:Rb, lq:local, lp:local pos}
+    for(let f=0;f<N;f++){
+      if(N>1) evalAt(f);
+      const {W,Q}=rig.worlds(), Rb=new Map(), Pw=new Map(), out=new Map();
+      for(const p of parts){ Rb.set(p.id,Q.get(p.id).clone().multiply(Q0.get(p.id).clone().invert()));
+        Pw.set(p.id,new THREE.Vector3().setFromMatrixPosition(W.get(p.id))); }
+      for(const p of parts){
+        const par=isRoot(p)?null:p.parent;
+        const pq=par!=null?Rb.get(par):new THREE.Quaternion();
+        const lq=pq.clone().invert().multiply(Rb.get(p.id));
+        const lp=Pw.get(p.id).clone().sub(par!=null?Pw.get(par):new THREE.Vector3()).applyQuaternion(pq.clone().invert());
+        out.set(p.id,{lq,lp});
+      }
+      frames.push(out);
+    }
+    // ข้อไหนเลื่อนตำแหน่งระหว่างท่า → ต้องมีช่องตำแหน่ง
+    const offOf=p=>P0.get(p.id).clone().sub(isRoot(p)?new THREE.Vector3():P0.get(p.parent));
+    const moves=new Set();
+    for(const p of parts){
+      if(isRoot(p)){ moves.add(p.id); continue; }
+      const o=offOf(p); if(frames.some(F=>F.get(p.id).lp.distanceTo(o)>1e-4)) moves.add(p.id);
+    }
+    const used=new Set(), names=new Map(); for(const p of parts) names.set(p.id,bvhName(p,used));
+    const n4=v=>(Math.abs(v)<5e-7?0:v).toFixed(4), chOrder=[];
+    let txt='HIERARCHY\n';
+    const ind=d=>'  '.repeat(d);
+    const writeJoint=(p,d,isTop)=>{
+      const o=(isTop&&!multiRoot)?new THREE.Vector3():offOf(p), six=moves.has(p.id);
+      txt+=ind(d)+(isTop&&!multiRoot?'ROOT ':'JOINT ')+names.get(p.id)+'\n'+ind(d)+'{\n';
+      txt+=ind(d+1)+'OFFSET '+[o.x,o.y,o.z].map(n4).join(' ')+'\n';
+      txt+=ind(d+1)+'CHANNELS '+(six?'6 Xposition Yposition Zposition ':'3 ')+'Zrotation Xrotation Yrotation\n';
+      chOrder.push({id:p.id,six});
+      const kids=rig.kids(p.id).filter(keep);
+      if(kids.length) for(const k of kids) writeJoint(k,d+1,false);
+      else {
+        // ปลายสุด: End Site ยาวเท่ากล่อง (ทิศจากจุดหมุนไปปลายกล่อง)
+        const c=rig.offsetOf(p), e=new THREE.Vector3(c[0]*2,c[1]*2,c[2]*2);
+        if(p.noMesh||e.lengthSq()<1e-8) e.set(0,.05,0);
+        e.applyQuaternion(Q0.get(p.id));
+        txt+=ind(d+1)+'End Site\n'+ind(d+1)+'{\n'+ind(d+2)+'OFFSET '+[e.x,e.y,e.z].map(n4).join(' ')+'\n'+ind(d+1)+'}\n';
+      }
+      txt+=ind(d)+'}\n';
+    };
+    if(multiRoot){
+      txt+='ROOT Root\n{\n  OFFSET 0 0 0\n  CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation\n';
+      for(const r of roots) writeJoint(r,1,true);
+      txt+='}\n';
+    } else writeJoint(roots[0],0,true);
+    txt+='MOTION\nFrames: '+N+'\nFrame Time: '+(1/fps).toFixed(6)+'\n';
+    const e=new THREE.Euler(), deg=r=>(r*180/Math.PI).toFixed(3);
+    for(const F of frames){
+      const row=multiRoot?['0','0','0','0','0','0']:[];
+      for(const {id,six} of chOrder){ const {lq,lp}=F.get(id);
+        if(six) row.push(n4(lp.x),n4(lp.y),n4(lp.z));
+        e.setFromQuaternion(lq,'ZXY'); row.push(deg(e.z),deg(e.x),deg(e.y)); }
+      txt+=row.join(' ')+'\n';
+    }
+    dlText(txt,safeFileName(clip.name)+'.bvh','text/plain');
+    say('ส่งออก .bvh ท่า "'+clip.name+'" แล้ว — '+N+' เฟรม');
+  } finally { applyPose(savedPose); frame=savedFrame; if(clip.keys.length) evalAt(frame); refreshAll(); }
 }
 
 /* ═════ NAV GIZMO (มุมกล้องแบบ Blender) ═════
