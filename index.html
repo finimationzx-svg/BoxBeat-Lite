@@ -1,0 +1,3104 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>BoxBeat</title>
+<style>
+  :root{ --bg:#14161c; --pan:#1b1e26; --line:#2f3644; --txt:#dde2ec; --dim:#8791a5;
+         --acc:#e0703a; --top:46px; }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; height:100dvh; overflow:hidden; overscroll-behavior:none;
+             -webkit-user-select:none; user-select:none; }
+  body{ background:var(--bg); color:var(--txt);
+        font:13px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif; }
+  canvas{ position:fixed; inset:0; width:100%!important; height:100%!important;
+          display:block; image-rendering:pixelated; touch-action:none; }
+
+  button{ background:#272d39; color:var(--txt); border:1px solid var(--line); border-radius:9px;
+          font:inherit; font-size:13px; cursor:pointer; padding:10px 8px; }
+  button:active{ background:var(--acc); border-color:var(--acc); color:#15171d; }
+  button.on{ background:var(--acc); border-color:var(--acc); color:#15171d; font-weight:600; }
+
+  #top{ position:fixed; z-index:30; top:0; left:0; right:0;
+        height:calc(var(--top) + env(safe-area-inset-top)); padding:0 8px;
+        padding-top:env(safe-area-inset-top);
+        display:flex; align-items:center; gap:7px;
+        background:rgba(20,22,28,.9); border-bottom:1px solid var(--line); backdrop-filter:blur(8px); }
+  #top button{ padding:8px 13px; font-size:14px; }
+  #tabs{ display:flex; gap:4px; }
+  #selName{ flex:1; text-align:right; font-size:12px; color:var(--acc);
+            overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  #bUndo,#bUIHide{ flex:none; padding:8px 10px; font-size:15px; }
+
+  #bottom{ position:fixed; z-index:30; left:0; right:0; bottom:0;
+           display:flex; flex-direction:column; pointer-events:none;
+           padding-bottom:env(safe-area-inset-bottom); }
+  #bottom>*{ pointer-events:auto; }
+
+  #hud{ display:none; margin:0 6px 6px; padding:6px;
+        background:rgba(20,22,28,.9); border:1px solid var(--line);
+        border-radius:13px; backdrop-filter:blur(8px); }
+  body.hud #hud{ display:block; }
+  #hTabs{ display:flex; flex-wrap:wrap; gap:4px; margin-bottom:6px; }
+  #hTabs button{ flex:1 1 60px; padding:8px 2px; font-size:11px; }
+  #hTabs button[data-h="more"],#hTabs button[data-h="close"]{ flex:0 0 38px; font-size:14px; }
+  .hp{ display:none; gap:4px; }
+  .hp.act{ display:flex; }
+  .hp button{ flex:1; height:50px; padding:0; font-size:11px; line-height:1.25; }
+  .hp button b{ display:block; font-size:16px; font-weight:700; }
+  #hVal{ text-align:center; font-size:11px; color:var(--dim); margin-top:5px;
+         font-variant-numeric:tabular-nums; }
+  #hStep,#hSnap{ display:none; gap:4px; margin-top:5px; }
+  #hStep button,#hSnap button{ flex:1; padding:7px 0; font-size:11px; }
+
+  #tl{ display:none; padding:6px 8px 7px; background:rgba(20,22,28,.94);
+       border-top:1px solid var(--line); }
+  body.pose #tl{ display:block; }
+  #tlBtns{ display:flex; gap:5px; align-items:center; margin-bottom:6px; }
+  #tlBtns button{ flex:1; height:38px; padding:0; font-size:14px; }
+  #tlNum{ flex:none; min-width:58px; text-align:center; font-size:13px;
+          font-weight:600; color:var(--acc); }
+  #strip{ position:relative; height:24px; background:#101319; border:1px solid var(--line);
+          border-radius:6px; overflow:hidden; touch-action:none; }
+  .kf{ position:absolute; top:6px; width:10px; height:10px; margin-left:-5px;
+       background:var(--acc); transform:rotate(45deg); border-radius:1px; pointer-events:none; }
+  .tk{ position:absolute; bottom:0; width:1px; height:4px; background:#38404f; pointer-events:none; }
+  #head{ position:absolute; top:0; bottom:0; width:2px; margin-left:-1px;
+         background:#5ec27a; pointer-events:none; }
+
+  #tlIK{ display:none; margin-top:6px; }
+  #tlIKHead{ display:flex; align-items:center; gap:5px; margin-bottom:4px; }
+  #tlIKName{ flex:1; font-size:11px; color:#49d0e0; overflow:hidden;
+             white-space:nowrap; text-overflow:ellipsis; }
+  #tlIKHead button{ flex:none; height:26px; padding:0 8px; font-size:12px; }
+  #stripIK{ position:relative; height:16px; background:#101319; border:1px solid #2b4650;
+            border-radius:6px; overflow:hidden; touch-action:none; }
+  .kfik{ position:absolute; top:3px; width:8px; height:8px; margin-left:-4px;
+         background:#49d0e0; transform:rotate(45deg); border-radius:1px; pointer-events:none; }
+  #headIK{ position:absolute; top:0; bottom:0; width:2px; margin-left:-1px;
+           background:#5ec27a; pointer-events:none; }
+
+  #tool{ display:flex; gap:6px; padding:7px 8px; background:rgba(20,22,28,.95);
+         border-top:1px solid var(--line); backdrop-filter:blur(8px); }
+  #tool button{ flex:1; height:46px; font-size:13px; padding:0 1px;
+                white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #tool:not(.icons) button[data-a="key"]{ flex:0 0 52px; }
+  #tool.icons{ gap:4px; }
+  #tool.icons button{ height:50px; min-width:0; display:flex; flex-direction:column;
+                      align-items:center; justify-content:center; gap:2px; }
+  #tool.icons button i{ font-style:normal; font-size:18px; line-height:1; pointer-events:none; }
+  #tool.icons button span{ font-size:11px; line-height:1; pointer-events:none; }
+
+  /* ── เครื่องหมายจุดควบคุม FK / IK (โหมดท่าทาง) ── */
+  .mk{ display:inline-block; box-sizing:border-box; width:12px; height:12px; flex:none; }
+  .mk.fk{ border:2.5px solid #ff9a3c; border-radius:50%; background:#15171d88; }
+  .mk.ik{ width:13px; height:13px; background:#49d0e0; border:2px solid #15171d; transform:rotate(45deg); }
+  .mk.ikj{ width:10px; height:10px; background:#b07cff; border:1.5px solid #15171d; border-radius:50%; }
+  .mk.root{ background:#ffe066; border:2px solid #15171d; border-radius:2px; }
+  #ctrlMarks{ position:fixed; inset:0; z-index:19; pointer-events:none; display:none; }
+  body.pose #ctrlMarks{ display:block; }
+  .cm{ position:absolute; transform:translate(-50%,-50%); opacity:.9; }
+  .cm.ik{ transform:translate(-50%,-50%) rotate(45deg); }
+  .cm.sel{ opacity:1; box-shadow:0 0 0 3px #fff8; }
+  .cmTag{ position:absolute; transform:translate(-50%,-100%); margin-top:-12px; padding:2px 7px;
+          border-radius:8px; font-size:10px; font-weight:700; color:#15171d; white-space:nowrap; }
+  #ctrlLegend{ position:fixed; z-index:27; left:8px; top:calc(var(--top) + env(safe-area-inset-top) + 40px);
+               display:none; flex-direction:column; gap:4px; padding:7px 9px; font-size:11px;
+               background:rgba(20,22,28,.85); border:1px solid var(--line); border-radius:10px; cursor:pointer; }
+  body.pose:not(.noLegend):not(.ovHide) #ctrlLegend{ display:flex; }
+  #ctrlLegend>div{ display:flex; align-items:center; gap:7px; }
+  #ctrlLegend .lh{ display:flex; justify-content:space-between; gap:10px; color:var(--dim); font-size:10px; }
+  #ctrlLegend .lx{ color:var(--dim); padding:0 2px; }
+  #ctrlLegend .lk{ color:var(--acc); font-size:10px; margin-top:2px; }
+  #bLegend{ position:fixed; z-index:27; left:8px; top:calc(var(--top) + env(safe-area-inset-top) + 40px);
+            display:none; padding:5px 9px; font-size:11px; border-radius:9px; background:rgba(39,45,57,.85); }
+  body.pose.noLegend:not(.ovHide) #bLegend{ display:block; }
+
+  /* ── หน้าความรู้ 3D ── */
+  @media (max-width:430px){ .wide{ display:none; } }
+  #learn{ position:fixed; inset:0; z-index:55; display:none; background:var(--bg);
+          overflow-y:auto; padding:0 14px calc(24px + env(safe-area-inset-bottom)); }
+  #lHead{ position:sticky; top:0; z-index:2; display:flex; align-items:center; gap:8px;
+          margin:0 -14px 12px; padding:calc(8px + env(safe-area-inset-top)) 14px 8px;
+          background:rgba(20,22,28,.95); border-bottom:1px solid var(--line); backdrop-filter:blur(8px); }
+  #lHead .t{ flex:1; font-size:15px; font-weight:700; }
+  #lHead button{ padding:8px 13px; }
+  body.learn #learn{ display:block; }
+  #learnIn{ max-width:560px; margin:0 auto; }
+  #learn h1{ font-size:20px; color:var(--acc); text-align:center; }
+  #learn .sub{ font-size:12px; color:var(--dim); text-align:center; margin:4px 0 12px; }
+  #lProg{ height:8px; background:#101319; border:1px solid var(--line); border-radius:6px; overflow:hidden; margin-bottom:4px; }
+  #lProgBar{ height:100%; width:0; background:linear-gradient(90deg,#5ec27a,#ffe066); transition:width .3s; }
+  #lProgTxt{ font-size:11px; color:var(--dim); text-align:center; margin-bottom:12px; }
+  #lNav{ display:flex; flex-wrap:wrap; gap:5px; margin-bottom:14px; }
+  #lNav button{ flex:1 1 30%; padding:8px 4px; font-size:11px; }
+  #lNav button.done::after{ content:' ⭐'; }
+  .les{ background:var(--pan); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+  .les h2{ font-size:16px; display:flex; align-items:center; gap:8px; }
+  .les h2 .no{ flex:none; width:26px; height:26px; border-radius:50%; background:var(--acc); color:#15171d;
+               display:grid; place-items:center; font-size:13px; }
+  .les p{ font-size:13px; line-height:1.65; margin-top:8px; }
+  .les p b{ color:#ffe066; }
+  .les svg{ display:block; width:100%; max-height:190px; margin:10px 0 2px; background:#101319; border-radius:10px; }
+  .les .ex{ font-size:12px; line-height:1.6; margin-top:8px; padding:8px 10px; border-radius:9px;
+            background:#22283a; border-left:3px solid #49d0e0; }
+  .les .try{ width:100%; margin-top:10px; padding:11px; background:#2b3446; }
+  .quiz{ margin-top:12px; padding-top:10px; border-top:1px dashed var(--line); }
+  .quiz .q{ font-size:13px; font-weight:600; }
+  .quiz .ch{ display:flex; flex-direction:column; gap:5px; margin-top:7px; }
+  .quiz .ch button{ text-align:left; padding:10px; font-size:13px; }
+  .quiz .ch button.ok{ background:#2e5a3c; border-color:#5ec27a; color:#dff5e5; }
+  .quiz .ch button.no{ background:#5a2e2e; border-color:#e0503c; color:#f7dede; }
+  .quiz .fb{ font-size:12px; margin-top:7px; line-height:1.55; min-height:1em; }
+  #interpBtnsGlobal button{ padding:9px 2px; font-size:11px; }
+  #shade{ position:fixed; inset:0; z-index:39; background:#000a; display:none; }
+  body.sheet #shade{ display:block; }
+  #sheet{ position:fixed; z-index:40; left:0; right:0; bottom:0; max-height:76vh;
+          overflow-y:auto; display:none; background:var(--pan);
+          border-top:1px solid var(--line); border-radius:16px 16px 0 0;
+          padding:6px 12px calc(16px + env(safe-area-inset-bottom)); }
+  body.sheet #sheet{ display:block; }
+  #grab{ width:42px; height:4px; background:#454e5e; border-radius:2px; margin:6px auto 10px; }
+  .sh{ display:none; } .sh.act{ display:block; }
+  h3{ font-size:11px; letter-spacing:.1em; color:var(--dim); text-transform:uppercase;
+      margin:14px 0 7px; font-weight:600; }
+  h3:first-child{ margin-top:2px; }
+  .g2{ display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+  .lb{ font-size:11px; color:var(--dim); display:flex; justify-content:space-between; margin:8px 0 3px; }
+  .lb b{ color:var(--txt); }
+  input[type=range]{ width:100%; height:32px; accent-color:var(--acc); }
+  input[type=file]{ width:100%; font:inherit; font-size:11px; color:var(--dim); padding:6px 0; }
+  .lst{ max-height:210px; overflow-y:auto; border:1px solid var(--line); border-radius:9px; padding:4px; }
+  .lst button{ width:100%; text-align:left; margin-bottom:3px; padding:11px 10px; font-size:13px; }
+  .note{ font-size:11px; color:var(--dim); margin-top:8px; line-height:1.5; }
+
+  /* ── หน้าเลือกแบบเริ่มต้น ── */
+  #start{ position:fixed; inset:0; z-index:60; display:none;
+          background:rgba(12,14,19,.96); backdrop-filter:blur(6px);
+          overflow-y:auto; padding:calc(24px + env(safe-area-inset-top)) 14px
+                                 calc(24px + env(safe-area-inset-bottom)); }
+  body.start #start{ display:block; }
+  #brand{ text-align:center; font-size:28px; font-weight:800; letter-spacing:.06em; color:var(--txt); }
+  #brand b{ color:var(--acc); }
+  #brandTag{ text-align:center; font-size:11px; color:var(--dim); margin:2px 0 14px; letter-spacing:.04em; }
+  #start h1{ font-size:19px; font-weight:700; color:var(--acc); text-align:center; }
+  #start .sub{ font-size:12px; color:var(--dim); text-align:center; margin:4px 0 18px; }
+  #cards{ display:grid; grid-template-columns:1fr 1fr; gap:9px; max-width:520px; margin:0 auto; }
+  .card{ background:var(--pan); border:1px solid var(--line); border-radius:13px;
+         padding:14px 10px; text-align:center; cursor:pointer; }
+  .card:active{ border-color:var(--acc); background:#242a35; }
+  .card .ic{ font-size:26px; line-height:1.1; color:var(--acc); }
+  .card .tt{ font-size:14px; font-weight:600; margin-top:7px; }
+  .card .ds{ font-size:11px; color:var(--dim); margin-top:3px; line-height:1.4; }
+  #startFoot{ max-width:520px; margin:16px auto 0; display:flex; flex-direction:column; gap:7px; }
+  #startFoot button{ width:100%; padding:12px; }
+  #credits{ max-width:520px; margin:22px auto 0; padding-top:12px; border-top:1px solid var(--line);
+            font-size:11px; color:var(--dim); text-align:center; }
+  #crLine b{ color:var(--txt); font-weight:600; }
+  #crTog{ color:var(--acc); cursor:pointer; white-space:nowrap; }
+  #crBody{ display:none; text-align:left; margin-top:10px; padding:10px 12px; line-height:1.6;
+           background:var(--pan); border:1px solid var(--line); border-radius:11px; }
+  #credits.open #crBody{ display:block; }
+  #crBody b{ color:var(--txt); }
+  #crBody .crH{ color:var(--acc); font-weight:700; margin-top:8px; }
+  #crBody .crH:first-child{ margin-top:0; }
+  #crBody .lic{ font-size:9px; padding:0 5px; border:1px solid var(--line); border-radius:6px; margin-left:3px; }
+  #crBody .crSrc{ margin-top:10px; text-align:center; }
+  #crBody a{ color:#49d0e0; }
+
+  #stat{ position:fixed; z-index:28; left:8px; top:calc(var(--top) + env(safe-area-inset-top) + 8px);
+         font-size:12px; color:var(--acc); background:rgba(20,22,28,.85);
+         padding:5px 10px; border-radius:7px; pointer-events:none; max-width:70vw; display:none; }
+  #navGiz{ position:fixed; z-index:29; inset:auto; right:6px; top:calc(var(--top) + env(safe-area-inset-top) + 6px);
+           width:100px!important; height:100px!important; border-radius:50%; touch-action:none; cursor:pointer;
+           image-rendering:auto; }
+  #navGiz:hover{ background:rgba(255,255,255,.06); }
+  #bOrtho{ position:fixed; z-index:29; right:21px; top:calc(var(--top) + env(safe-area-inset-top) + 110px);
+           width:70px; padding:5px 0; font-size:12px; border-radius:7px; background:rgba(39,45,57,.85); }
+  #bOrtho.on{ background:var(--acc); }
+  /* ปุ่มลัด เปิด/ปิด เส้นขอบ · จุดหมุน (ใต้ปุ่ม Persp) — ปิดอยู่ = จางและขีดฆ่า */
+  #viewQ{ position:fixed; z-index:29; right:21px; top:calc(var(--top) + env(safe-area-inset-top) + 142px);
+          width:70px; display:flex; flex-direction:column; gap:4px; }
+  #viewQ button{ padding:5px 0; font-size:11px; border-radius:7px; background:rgba(39,45,57,.85); }
+  #viewQ button:not(.on){ opacity:.5; text-decoration:line-through; }
+  #viewQ button.on{ background:rgba(39,45,57,.85); color:var(--txt); font-weight:400; border-color:var(--line); }
+  #err{ position:fixed; z-index:99; left:8px; right:8px; top:60px; background:#3a1216; color:#ffb3b3;
+        padding:10px; border:1px solid #d9534f; border-radius:8px; white-space:pre-wrap;
+        font:11px ui-monospace,monospace; max-height:50vh; overflow:auto; display:none; }
+  @media (min-width:900px){
+    #sheet{ left:auto; right:12px; bottom:12px; width:360px; border-radius:14px;
+            max-height:calc(100vh - 140px); border:1px solid var(--line); }
+    #shade{ background:#0003; }
+    #bottom{ left:auto; right:0; width:min(520px,100vw); }
+  }
+</style>
+<script>
+(function(){ function s(m){ var d=document.getElementById('err');
+  if(!d){ d=document.createElement('pre'); d.id='err'; document.body.appendChild(d); }
+  d.style.display='block'; d.textContent+=m+'\n\n'; }
+  addEventListener('error',e=>s('ERROR: '+e.message+' @'+e.lineno));
+  addEventListener('unhandledrejection',e=>s('PROMISE: '+e.reason));
+  var o=console.error; console.error=function(){ o.apply(console,arguments);
+    s('GL: '+Array.from(arguments).join(' ').slice(0,900)); }; })();
+</script>
+<script type="importmap">
+{"imports":{ "three":"https://unpkg.com/three@0.160.0/build/three.module.js",
+ "three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/" }}
+</script>
+</head>
+<body>
+
+<div id="top">
+  <button id="bMenu">☰</button>
+  <div id="tabs"><button id="tB" class="on">ปั้น</button><button id="tP">ท่าทาง</button><button id="tL" title="บทเรียน 3D สำหรับมือใหม่">📖<span class="wide"> เรียนรู้</span></button></div>
+  <div id="selName">—</div>
+  <button id="bUndo" title="ย้อนกลับ (Ctrl+Z)">↺</button>
+  <button id="bUIHide" title="ซ่อนจุดหมุน/gizmo บนโมเดล">👁</button>
+</div>
+
+<div id="stat"></div>
+<canvas id="navGiz" title="แตะแกน = หันกล้องไปมุมนั้น · ลาก = หมุนกล้อง"></canvas>
+<button id="bOrtho" title="สลับ Perspective / Orthographic (Numpad 5)">Persp</button>
+<div id="viewQ">
+  <button id="bWireQ" class="on" title="เปิด/ปิด เส้นขอบกล่อง">▦ เส้นขอบ</button>
+  <button id="bPivQ" class="on" title="เปิด/ปิด จุดหมุน (กากบาท) และเส้นโยงแม่–ลูก">✛ จุดหมุน</button>
+</div>
+<div id="ctrlMarks"></div>
+<div id="ctrlLegend" title="แตะเพื่ออ่านว่า IK / FK คืออะไร">
+  <div class="lh"><span>จุดควบคุม</span><span class="lx" data-lg="hide">✕</span></div>
+  <div><i class="mk fk"></i>FK — หมุนทีละข้อ</div>
+  <div><i class="mk ik"></i>IK — ลากปลาย ข้อพับเอง</div>
+  <div><i class="mk ikj"></i>ข้อที่ IK หมุนให้</div>
+  <div><i class="mk root"></i>ราก — ย้ายทั้งตัว</div>
+  <div class="lk">📖 IK กับ FK ต่างกันยังไง?</div>
+</div>
+<button id="bLegend" title="แสดงคำอธิบายจุดควบคุม">○◆ ?</button>
+<div id="learn"><div id="learnIn">
+  <div id="lHead"><span class="t">📖 เรียนรู้ 3D</span><button id="bLearnClose">✕ กลับไปทำงาน</button></div>
+  <h1>มาเรียน 3D กันเถอะ!</h1>
+  <div class="sub">อ่านทีละบท ลองทำในแอปจริง แล้วตอบคำถามเก็บดาว ⭐</div>
+  <div id="lProg"><div id="lProgBar"></div></div><div id="lProgTxt"></div>
+  <div id="lNav"></div>
+  <div id="lList"></div>
+</div></div>
+
+<div id="bottom">
+  <div id="hud">
+    <div id="hTabs"></div>
+    <div class="hp" data-p="size">
+      <button data-sz="0,-1">กว้าง<b>−</b></button><button data-sz="0,1">กว้าง<b>＋</b></button>
+      <button data-sz="1,-1">สูง<b>−</b></button><button data-sz="1,1">สูง<b>＋</b></button>
+      <button data-sz="2,-1">ลึก<b>−</b></button><button data-sz="2,1">ลึก<b>＋</b></button>
+    </div>
+    <div class="hp" data-p="pos">
+      <button data-bo="0,-1">ซ้าย<b>−</b></button><button data-bo="0,1">ขวา<b>＋</b></button>
+      <button data-bo="1,-1">ลง<b>−</b></button><button data-bo="1,1">ขึ้น<b>＋</b></button>
+      <button data-bo="2,-1">หลัง<b>−</b></button><button data-bo="2,1">หน้า<b>＋</b></button>
+    </div>
+    <div class="hp" data-p="piv">
+      <button data-pv="0,-1">X<b>−</b></button><button data-pv="0,1">X<b>＋</b></button>
+      <button data-pv="1,-1">Y<b>−</b></button><button data-pv="1,1">Y<b>＋</b></button>
+      <button data-pv="2,-1">Z<b>−</b></button><button data-pv="2,1">Z<b>＋</b></button>
+    </div>
+    <div class="hp" data-p="rot">
+      <button data-n="0,-1">ก้ม<b>−</b></button><button data-n="0,1">เงย<b>＋</b></button>
+      <button data-n="1,-1">หัน<b>−</b></button><button data-n="1,1">หัน<b>＋</b></button>
+      <button data-n="2,-1">เอียง<b>−</b></button><button data-n="2,1">เอียง<b>＋</b></button>
+    </div>
+    <div class="hp" data-p="move">
+      <button data-mv="0,-1">ซ้าย<b>−</b></button><button data-mv="0,1">ขวา<b>＋</b></button>
+      <button data-mv="1,-1">ลง<b>−</b></button><button data-mv="1,1">ขึ้น<b>＋</b></button>
+      <button data-mv="2,-1">หลัง<b>−</b></button><button data-mv="2,1">หน้า<b>＋</b></button>
+    </div>
+    <div id="hVal">—</div>
+    <div id="hStep">
+      <button data-st="5">5°</button><button data-st="15" class="on">15°</button>
+      <button data-st="30">30°</button><button data-st="45">45°</button>
+    </div>
+    <div id="hSnap">
+      <button data-sn="tog" id="bSnapE">ดูดขอบ: ปิด</button>
+      <button data-sn="now">จัดชิดเดี๋ยวนี้</button>
+      <button data-sn="fine" id="bFine">ละเอียด 0.05</button>
+    </div>
+  </div>
+
+  <div id="tl">
+    <div id="tlBtns">
+      <button data-t="pk">◀◆</button><button data-t="pf">◀</button>
+      <button data-t="play">▶</button><button data-t="nf">▶</button>
+      <button data-t="nk">◆▶</button><span id="tlNum">0/24</span>
+    </div>
+    <div id="strip"><div id="head"></div></div>
+    <div id="tlIK">
+      <div id="tlIKHead"><span id="tlIKName">—</span>
+        <button data-tik="pk">◀◆</button><button data-tik="nk">◆▶</button></div>
+      <div id="stripIK"><div id="headIK"></div></div>
+    </div>
+  </div>
+
+  <div id="tool"></div>
+</div>
+
+<div id="start">
+  <div id="brand">▣ Box<b>Beat</b></div>
+  <div id="brandTag">ปั้นจากกล่อง · ขยับตามจังหวะ</div>
+  <h1>เริ่มโปรเจกต์ใหม่</h1>
+  <div class="sub">เลือกจุดเริ่มต้น — เปลี่ยนทีหลังได้เสมอ</div>
+  <div id="cards">
+    <div class="card" data-tpl="cube">
+      <div class="ic">▣</div><div class="tt">กล่องเดียว</div>
+      <div class="ds">เริ่มจากศูนย์<br>ต่อกล่องเองทุกชิ้น</div>
+    </div>
+    <div class="card" data-tpl="biped">
+      <div class="ic">웃</div><div class="tt">หุ่นคน</div>
+      <div class="ds">หัว ลำตัว แขนขา<br>ใช้วงจรเดินได้ทันที</div>
+    </div>
+    <div class="card" data-tpl="chibi">
+      <div class="ic">☗</div><div class="tt">หัวโต</div>
+      <div class="ds">สัดส่วนการ์ตูน<br>สไตล์เกมยุคแรก</div>
+    </div>
+    <div class="card" data-tpl="quad">
+      <div class="ic">⌸</div><div class="tt">สัตว์สี่ขา</div>
+      <div class="ds">ลำตัว หัว หาง<br>ขาหน้า-หลัง</div>
+    </div>
+    <div class="card" data-tpl="fish">
+      <div class="ic">◁◆</div><div class="tt">ปลา</div>
+      <div class="ds">ลำตัวโค้งเป็นข้อ ครีบ หาง<br>ใช้วงจรว่ายน้ำได้ทันที</div>
+    </div>
+    <div class="card" data-tpl="snake">
+      <div class="ic">∿</div><div class="tt">งู</div>
+      <div class="ds">ลำตัวหลายปล้อง<br>ใช้วงจรเลื้อยได้ทันที</div>
+    </div>
+    <div class="card" data-tpl="bird">
+      <div class="ic">⌒⌒</div><div class="tt">นก</div>
+      <div class="ds">ปีกสองท่อน หาง จะงอยปาก<br>ใช้วงจรกระพือปีกได้ทันที</div>
+    </div>
+    <div class="card" data-tpl="spider">
+      <div class="ic">✳</div><div class="tt">แมงมุม</div>
+      <div class="ds">8 ขา ลำตัว ท้อง<br>ใช้วงจรเดินสลับขาได้ทันที</div>
+    </div>
+    <div class="card" data-tpl="dragon">
+      <div class="ic">◆∿</div><div class="tt">มังกร</div>
+      <div class="ds">ลำตัวเลื้อย 4 ขา ปีก เขา<br>ใช้วงจรเดิน+กระพือได้ทันที</div>
+    </div>
+    <div class="card" data-tpl="worm">
+      <div class="ic">∘∘∘</div><div class="tt">หนอนผีเสื้อ</div>
+      <div class="ds">ปล้องกลม หนวด<br>ใช้วงจรยืดหดเป็นคลื่นได้ทันที</div>
+    </div>
+  </div>
+  <div id="startFoot">
+    <button id="bResume">กลับไปงานที่ทำค้างไว้</button>
+  </div>
+  <div id="credits">
+    <div id="crLine">พัฒนาโดย <b>finimationzx</b> ร่วมกับ <b>Claude</b> · <span id="crTog">เครดิต ▾</span></div>
+    <div id="crBody">
+      <div class="crH">ผู้พัฒนา</div>
+      <div><b>finimationzx</b> — ไอเดีย ออกแบบ และทดสอบ</div>
+      <div><b>Claude</b> (Anthropic) ผ่าน Claude Code — ช่วยเขียนโค้ด</div>
+      <div class="crH">เทคโนโลยีที่ใช้</div>
+      <div><b>three.js</b> r160 — เรนเดอร์ 3D <span class="lic">MIT</span></div>
+      <div><b>three.js addons</b> — OrbitControls, GLTFExporter <span class="lic">MIT</span></div>
+      <div><b>unpkg</b> — CDN สำหรับโหลด three.js</div>
+      <div class="crSrc"><a href="https://github.com/finimationzx-svg/BoxBeat" target="_blank" rel="noopener">github.com/finimationzx-svg/BoxBeat</a></div>
+    </div>
+  </div>
+</div>
+
+<div id="shade"></div>
+<div id="sheet">
+  <div id="grab"></div>
+
+  <div class="sh" id="shMore">
+    <div id="posePartSection">
+    <h3>ชิ้นที่เลือก</h3>
+    <div class="g2">
+      <button data-a="parent">เลือกชิ้นแม่</button>
+      <button data-a="resetpart">คืนท่าชิ้นนี้</button>
+    </div>
+    <div id="splinePose" style="display:none">
+      <h3>หาง Spline</h3>
+      <div class="lb">งอขึ้น / ลง <b id="vBP">0°</b></div>
+      <input type="range" id="sBP" min="-120" max="120" step="1" value="0">
+      <div class="lb">งอซ้าย / ขวา <b id="vBY">0°</b></div>
+      <input type="range" id="sBY" min="-120" max="120" step="1" value="0">
+      <div class="lb">ม้วนปลาย <b id="vBC">0°</b></div>
+      <input type="range" id="sBC" min="-180" max="180" step="1" value="0">
+      <button data-a="bendreset" style="width:100%;margin-top:6px">คืนหางตรง</button>
+    </div>
+    </div>
+    <div id="buildPartSection">
+    <h3>ชิ้นที่เลือก</h3>
+    <div class="g2">
+      <button data-a="mirror">สะท้อนข้ามชิ้นอื่น…</button>
+      <button data-a="del">ลบชิ้นนี้</button>
+      <button data-a="parent">เลือกชิ้นแม่</button>
+      <button data-a="reparent">ย้ายไปต่อชิ้นอื่น</button>
+      <button data-a="pivreset">คืนจุดหมุน</button>
+      <button data-a="posreset">คืนตำแหน่งกล่อง</button>
+      <button data-a="center" style="grid-column:1/-1">จัดกึ่งกลางชิ้นแม่</button>
+    </div>
+    <div class="g2" style="margin-top:6px">
+      <button data-a="pivedge">จุดหมุนกลางเส้นขอบ…</button>
+      <button data-a="pivvert">จุดหมุนที่มุม (vertex)…</button>
+    </div>
+    <div class="note">กดแล้วแตะใกล้ๆ เส้นขอบหรือมุมของชิ้นนี้บนจอ 3D จุดหมุนจะย้ายไปอยู่กึ่งกลางเส้นขอบนั้นพอดี (หรือที่มุมนั้น) โดยกล่องไม่ขยับ ใช้กับข้อพับอย่างเข่าหรือศอก เช่น เลือกขาล่างแล้วแตะเส้นขอบด้านหน้าตรงหัวเข่า ตอนงอเข่า ขาล่างจะพับรอบเส้นนั้นเหมือนบานพับ ด้านหน้าจะไม่เกิดช่องหรือจมทะลุกัน ถ้าจะย้อนก็กด ↺ หรือ "คืนจุดหมุน"</div>
+    <div id="splineBuild">
+    <h3>หาง Spline</h3>
+    <button data-a="spline" id="bSpline" style="width:100%">แปลงเป็นหาง Spline</button>
+    <div id="splineOpts" style="display:none">
+      <div class="lb">จำนวนปล้อง (ความเนียนของส่วนโค้ง) <b id="vSSeg">6</b></div>
+      <input type="range" id="sSSeg" min="3" max="12" step="1" value="6">
+      <div class="lb">ความเรียวที่ปลาย <b id="vSTap">0.50</b></div>
+      <input type="range" id="sSTap" min="0.1" max="1" step="0.05" value="0.5">
+      <div class="lb">ความแกว่งตามแรงเหวี่ยง (0 = คีย์ล้วน, เกิน 1 = เด้งแรงพิเศษ) <b id="vSJig">0.50</b></div>
+      <input type="range" id="sSJig" min="0" max="1.5" step="0.05" value="0.5">
+    </div>
+    <div class="note">เปลี่ยนกล่องนี้เป็นหางที่โค้งได้เนียน ในโหมดท่าทางคุมด้วยค่า งอ/ม้วน แทนการหมุนทีละข้อ และแกว่งตามแรงเหวี่ยงให้เอง (ใช้ได้กับกล่องที่ไม่มีชิ้นลูกต่ออยู่)</div>
+    </div>
+    <h3>สีชิ้นส่วน</h3>
+    <input type="range" id="sHue" min="0" max="1" step="0.02" value="0">
+    </div>
+    <div id="ikSection">
+    <h3>ตัวควบคุม IK</h3>
+    <button data-a="addctrl" style="width:100%">＋ เพิ่มจุดควบคุมต่อจากชิ้นนี้</button>
+    <div class="note">สร้างจุดควบคุม IK ใหม่ต่อท้ายชิ้นนี้ทันที (ไม่มีกล่อง ตั้งค่าไว้ให้ 2 ข้อ) เช่น มีต้นแขน-แขนอยู่แล้ว เลือก "แขน" แล้วกดปุ่มนี้ จะได้ "มือ" เป็นจุดควบคุมต่อท้าย ลากที่ gizmo แล้วไหล่-ศอกจะบิดตามให้เอง — ดีกว่าตั้งให้ "แขน" เป็นคอนโทรลเอง เพราะจะได้ข้อพับครบ 2 ข้อจริงๆ</div>
+    <div class="lb" style="margin-top:12px">จำนวนข้อต่อที่พับ <b id="vIK">ปิด</b></div>
+    <div class="g2">
+      <button data-a="ikdec">－ ข้อ</button>
+      <button data-a="ikinc">＋ ข้อ</button>
+    </div>
+    <button data-a="pintog" id="bPin" style="width:100%;margin-top:6px">ปักหมุด: ปิด</button>
+    <div class="lb" style="margin-top:10px">ทิศพับข้อ (ศอก/เข่าจะงอไปทางนี้)</div>
+    <div class="g2">
+      <button data-a="polecycle">หมุนทิศ 90°</button>
+      <button data-a="poleflip">สลับด้านตรงข้าม</button>
+    </div>
+    <div class="note">เลือกชิ้นปลายสุด (ปลายแขน/ปลายขา/ปลายหาง/ปล้องสุดท้ายของกระดูกงู) แล้วกด ＋ ข้อ เพื่อตั้งจำนวนข้อต่อแม่ที่จะพับตาม — 2 ข้อเหมาะกับแขน/ขา ส่วนหางหรือกระดูกงูหลายปล้องใส่ได้มากกว่านั้น ไม่จำกัด จากนั้นในโหมดท่าทางจะมี gizmo ลูกศร 3 แกนขึ้นที่ชิ้นนี้ให้ลากตำแหน่งได้อิสระ (หรือใช้แท็บ "หมุน"/"เลื่อน" ก็ได้) ข้อต่อแม่ทั้งสายจะพับไล่ตามให้เองอัตโนมัติ<br><br>"ทิศพับข้อ" คือทิศที่ศอก/เข่าจะงอออกไป (เหมือนใน Cascadeur) — ถ้าพับผิดด้าน หรือตอนแขน/ขาตรงเป๊ะแล้วไม่รู้จะพับไปทางไหน ให้กด "หมุนทิศ 90°" ไล่ดูจนกว่าจะงอถูกด้าน หรือ "สลับด้านตรงข้าม" ถ้าพับกลับด้าน<br><br>กด "ปักหมุด" เพื่อล็อกตำแหน่งชิ้นนี้ไว้กับโลก — ทำแอนิเมชันโดยขยับชิ้นอื่น (เช่นลำตัว) ชิ้นที่ปักหมุดไว้ (เช่นเท้า) จะเกาะตำแหน่งเดิมไม่ขยับ ข้อต่อแม่จะบิดชดเชยให้เอง จนกว่าจะลากชิ้นนั้นไปที่ใหม่</div>
+    </div>
+    <div id="poseSection">
+    <h3>ท่าทางทั้งตัว</h3>
+    <div class="g2">
+      <button data-a="copy">คัดลอกท่า</button>
+      <button data-a="paste">วางท่า</button>
+      <button data-a="pastem">วางสลับ ซ้าย-ขวา</button>
+      <button data-a="restall">คืนท่าเริ่มต้น</button>
+    </div>
+    <div class="note">จัดท่าเฟรม 0 → คัดลอกท่า → ไปครึ่งทาง → วางสลับซ้าย-ขวา จะได้วงจรเดินทันที</div>
+    </div>
+  </div>
+
+  <div class="sh" id="shList">
+    <h3>ชิ้นส่วนทั้งหมด</h3>
+    <div class="lst" id="lst"></div>
+  </div>
+
+  <div class="sh" id="shSet">
+    <h3>โปรเจกต์</h3>
+    <button data-a="newproj" style="width:100%">เริ่มโปรเจกต์ใหม่ / เลือกเทมเพลต</button>
+    <h3>แอนิเมชัน</h3>
+    <button data-a="walk" style="width:100%">สร้างวงจรเคลื่อนไหวอัตโนมัติ ★ (ตามชนิดตัวละคร)</button>
+    <button data-a="autokey" id="bAuto" style="width:100%">บันทึกคีย์อัตโนมัติ</button>
+    <div class="lb" style="margin-top:10px">รูปแบบไล่เฟรม (ท่าระหว่างคีย์เคลื่อนแบบไหน)</div>
+    <div class="g2" style="grid-template-columns:repeat(3,1fr)" id="interpBtnsGlobal"></div>
+    <button data-a="delkey" style="width:100%;margin-top:6px">ลบคีย์ที่เฟรมนี้ (หรือแตะค้างที่เพชรบนไทม์ไลน์)</button>
+    <div class="lb">ความยาวคลิป <b id="vLen">24</b> เฟรม</div>
+    <input type="range" id="sLen" min="4" max="60" step="1" value="24">
+    <div class="lb">ความเร็ว <b id="vFps">24 เฟรม/วินาที · 1.0 วิ</b></div>
+    <div class="g2" style="grid-template-columns:repeat(4,1fr)">
+      <button data-a="speed" data-div="1">1 เท่า</button>
+      <button data-a="speed" data-div="2">÷2</button>
+      <button data-a="speed" data-div="3">÷3</button>
+      <button data-a="speed" data-div="4">÷4</button>
+    </div>
+    <div class="note">1 เท่า = เล่นครบคลิปใน 1 วินาที (เฟรม/วินาที เท่ากับความยาวคลิป) ÷2 ÷3 ÷4 = ช้าลงเป็น 2, 3, 4 วินาที ความเร็วจะปรับตามเองเมื่อเปลี่ยนความยาวคลิป</div>
+    <h3>มุมมอง</h3>
+    <div class="g2">
+      <button data-a="wire" id="bWire" class="on">เส้นขอบ</button>
+      <button data-a="piv" id="bPiv" class="on">จุดหมุน</button>
+    </div>
+    <div class="lb">ขนาดจุดควบคุม <b id="vLoc">0.08</b></div>
+    <input type="range" id="sLoc" min="0.03" max="0.2" step="0.01" value="0.08">
+    <h3>ไฟล์</h3>
+    <button data-a="expglb" style="width:100%;margin-bottom:6px">💾 บันทึกเป็นไฟล์ .glb (มีแอนิเมชัน)</button>
+    <div class="note">ไฟล์ .glb เป็นไฟล์ 3D มาตรฐาน เปิดดูหรือใช้ต่อในโปรแกรม/เกมเอนจินอื่นได้ เช่น Blender, Windows 3D Viewer</div>
+    <button data-a="clear" style="width:100%;margin-top:6px">ล้างงานที่บันทึกไว้</button>
+    <div class="note" id="saveInfo">—</div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+const $=id=>document.getElementById(id);
+const AX=[new THREE.Vector3(1,0,0),new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,1)];
+const FACE_N=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+// ทิศตามมุมมองของตัวละคร (หันหน้าไป +Z) — ตรงกับชื่อชิ้นในเทมเพลต (แขนซ้ายอยู่ +X)
+const FN=['ซ้าย','ขวา','บน','ล่าง','หน้า','หลัง'];
+const FACE_IDX=[[1,2,6,5],[0,4,7,3],[3,7,6,2],[0,1,5,4],[4,5,6,7],[0,3,2,1]];
+const EDGES=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+const axisOf=d=>d[0]!==0?0:d[1]!==0?1:2;
+const faceOfDir=d=>FACE_N.findIndex(n=>n[0]===d[0]&&n[1]===d[1]&&n[2]===d[2]);
+const KEY='ps1-parts-m4';   // คีย์บันทึกงานเดิม (ชื่อเก่า) — ห้ามเปลี่ยน ไม่งั้นงานที่ค้างไว้จะหาย
+let STEP=.05;
+const SNAP_THR=.09;
+
+/* ═════ RIG ═════ */
+class Rig{
+  constructor(){ this.parts=new Map(); this._id=0; }
+  add(o){
+    const id=(o.id!==undefined?o.id:this._id);
+    if(id>=this._id) this._id=id+1;
+    this.parts.set(id,{ id, name:o.name||('ชิ้น'+id),
+      parent:(o.parent===undefined?null:o.parent),
+      attachFace:(o.attachFace===undefined?-1:o.attachFace),
+      dir:[...(o.dir||[0,1,0])], size:[...(o.size||[.5,.5,.5])],
+      shift:[...(o.shift||[0,0,0])], boxOff:[...(o.boxOff||[0,0,0])],
+      hue:(o.hue===undefined?(id*.13)%1:o.hue),
+      ikChain:(o.ikChain||0), pinned:(o.pinned||false), pinPos:[...(o.pinPos||[0,0,0])],
+      noMesh:(o.noMesh||false), poleDir:[...(o.poleDir||[0,0,1])],
+      spline:(o.spline?{segs:o.spline.segs||6,taper:(o.spline.taper??.5),jiggle:(o.spline.jiggle??.5)}:null),
+      bend:[0,0,0],
+      rest:o.rest?o.rest.clone():new THREE.Quaternion(),
+      rot:new THREE.Quaternion(), off:new THREE.Vector3() });
+    return id;
+  }
+  offsetOf(p){ const a=axisOf(p.dir),o=[...p.boxOff]; o[a]+=p.dir[a]*p.size[a]/2; return o; }
+  faceCenter(p,fi){ const o=this.offsetOf(p),n=FACE_N[fi];
+    return [o[0]+n[0]*p.size[0]/2,o[1]+n[1]*p.size[1]/2,o[2]+n[2]*p.size[2]/2]; }
+  pivotOf(p){
+    if(p.parent==null||!this.parts.has(p.parent)||p.attachFace<0) return [...p.shift];
+    const c=this.faceCenter(this.parts.get(p.parent),p.attachFace);
+    return [c[0]+p.shift[0],c[1]+p.shift[1],c[2]+p.shift[2]];
+  }
+  order(){ const out=[],s=new Set();
+    const go=p=>{ if(s.has(p.id))return;
+      if(p.parent!=null&&this.parts.has(p.parent)) go(this.parts.get(p.parent));
+      s.add(p.id); out.push(p); };
+    for(const p of this.parts.values()) go(p); return out; }
+  kids(id){ return [...this.parts.values()].filter(p=>p.parent===id); }
+  subtree(id){ const o=[id]; for(const k of this.kids(id)) o.push(...this.subtree(k.id)); return o; }
+  remove(id){ for(const i of this.subtree(id)) this.parts.delete(i); }
+  worlds(){
+    const W=new Map(),Q=new Map(),S=new THREE.Vector3(1,1,1),T=new THREE.Vector3();
+    for(const p of this.order()){
+      const pv=this.pivotOf(p);
+      T.set(pv[0]+p.off.x,pv[1]+p.off.y,pv[2]+p.off.z);
+      const q=p.rest.clone().multiply(p.rot);
+      const lc=new THREE.Matrix4().compose(T,q,S);
+      const pw=(p.parent!=null&&W.has(p.parent))?W.get(p.parent):null;
+      W.set(p.id, pw?pw.clone().multiply(lc):lc);
+      const pq=(p.parent!=null&&Q.has(p.parent))?Q.get(p.parent):new THREE.Quaternion();
+      Q.set(p.id,pq.clone().multiply(q));
+    }
+    return {W,Q};
+  }
+}
+
+/* ═════ TEMPLATES ═════ */
+// จุดควบคุม IK สำเร็จรูป (ไม่มี mesh, 2 ข้อ, ไม่ปักหมุด) — ต่อที่ปลายแขน/ขา ลากในโหมดท่าทางได้ทันที
+// pole = ทิศที่ข้อศอก/เข่าจะพับไป (+Z = หน้า)
+function addIK(r,parent,face,name,pole){
+  return r.add({name,parent,attachFace:face,dir:FACE_N[face],size:[.12,.12,.12],
+    hue:.5,ikChain:2,noMesh:true,poleDir:pole});
+}
+function tplCube(){ const r=new Rig();
+  r.add({name:'ลำตัว',dir:[0,1,0],size:[1.2,1.2,1.2],shift:[0,0,0],hue:.08}); return r; }
+function tplBiped(){
+  const r=new Rig();
+  const t=r.add({name:'ลำตัว',dir:[0,1,0],size:[.7,.66,.36],shift:[0,1,0],hue:.58});
+  r.add({name:'หัว',parent:t,attachFace:2,dir:[0,1,0],size:[.46,.42,.44],hue:.09});
+  for(const s of [1,-1]){
+    const nm=s>0?'ซ้าย':'ขวา', af=s>0?0:1;
+    const a=r.add({name:'แขนบน'+nm,parent:t,attachFace:af,dir:[s,0,0],size:[.42,.19,.19],shift:[0,.2,0],hue:.52});
+    const fa=r.add({name:'แขนล่าง'+nm,parent:a,attachFace:af,dir:[s,0,0],size:[.4,.17,.17],hue:.09});
+    const th=r.add({name:'ขาบน'+nm,parent:t,attachFace:3,dir:[0,-1,0],size:[.22,.5,.22],shift:[s*.18,0,0],hue:.66});
+    const sh=r.add({name:'ขาล่าง'+nm,parent:th,attachFace:3,dir:[0,-1,0],size:[.2,.48,.2],hue:.66});
+    addIK(r,fa,af,'IKมือ'+nm,[0,0,-1]); addIK(r,sh,3,'IKเท้า'+nm,[0,0,1]);
+  }
+  return r;
+}
+function tplChibi(){
+  const r=new Rig();
+  const t=r.add({name:'ลำตัว',dir:[0,1,0],size:[.54,.42,.32],shift:[0,.66,0],hue:.55});
+  r.add({name:'หัว',parent:t,attachFace:2,dir:[0,1,0],size:[.68,.62,.62],hue:.09});
+  for(const s of [1,-1]){
+    const nm=s>0?'ซ้าย':'ขวา', af=s>0?0:1;
+    const a=r.add({name:'แขนบน'+nm,parent:t,attachFace:af,dir:[s,0,0],size:[.26,.16,.16],shift:[0,.09,0],hue:.5});
+    const fa=r.add({name:'แขนล่าง'+nm,parent:a,attachFace:af,dir:[s,0,0],size:[.24,.15,.15],hue:.09});
+    const th=r.add({name:'ขาบน'+nm,parent:t,attachFace:3,dir:[0,-1,0],size:[.19,.28,.19],shift:[s*.13,0,0],hue:.68});
+    const sh=r.add({name:'ขาล่าง'+nm,parent:th,attachFace:3,dir:[0,-1,0],size:[.18,.26,.18],hue:.68});
+    addIK(r,fa,af,'IKมือ'+nm,[0,0,-1]); addIK(r,sh,3,'IKเท้า'+nm,[0,0,1]);
+  }
+  return r;
+}
+function tplQuad(){
+  const r=new Rig();
+  const b=r.add({name:'ลำตัว',dir:[0,1,0],size:[.46,.42,1.0],shift:[0,.74,0],hue:.1});
+  const nk=r.add({name:'คอ',parent:b,attachFace:4,dir:[0,0,1],size:[.24,.24,.3],shift:[0,.09,0],hue:.12});
+  r.add({name:'หัว',parent:nk,attachFace:4,dir:[0,0,1],size:[.3,.28,.36],hue:.09});
+  r.add({name:'หาง',parent:b,attachFace:5,dir:[0,0,-1],size:[.13,.13,.42],shift:[0,.12,0],hue:.12});
+  for(const s of [1,-1]){
+    const nm=s>0?'ซ้าย':'ขวา';
+    const fu=r.add({name:'ขาหน้าบน'+nm,parent:b,attachFace:3,dir:[0,-1,0],
+      size:[.15,.3,.15],shift:[s*.15,0,.34],hue:.66});
+    const fl=r.add({name:'ขาหน้าล่าง'+nm,parent:fu,attachFace:3,dir:[0,-1,0],size:[.13,.28,.13],hue:.66});
+    addIK(r,fl,3,'IKเท้าหน้า'+nm,[0,0,1]);
+    const hu=r.add({name:'ขาหลังบน'+nm,parent:b,attachFace:3,dir:[0,-1,0],
+      size:[.17,.3,.17],shift:[s*.15,0,-.33],hue:.7});
+    const hl=r.add({name:'ขาหลังล่าง'+nm,parent:hu,attachFace:3,dir:[0,-1,0],size:[.14,.28,.14],hue:.7});
+    addIK(r,hl,3,'IKเท้าหลัง'+nm,[0,0,-1]);
+  }
+  return r;
+}
+// ปลา — หันหน้าไป +Z ลอยกลางน้ำ ลำตัวต่อเป็นข้อไปทางหาง ให้โค้งเป็นคลื่นตอนว่าย
+function tplFish(){
+  const r=new Rig();
+  const b=r.add({name:'ลำตัว',dir:[0,1,0],size:[.34,.46,.5],shift:[0,.8,0],hue:.55});
+  r.add({name:'หัว',parent:b,attachFace:4,dir:[0,0,1],size:[.3,.4,.26],hue:.57});
+  const t1=r.add({name:'ลำตัวท้าย',parent:b,attachFace:5,dir:[0,0,-1],size:[.28,.38,.34],hue:.55});
+  const t2=r.add({name:'โคนหาง',parent:t1,attachFace:5,dir:[0,0,-1],size:[.16,.24,.26],hue:.55});
+  r.add({name:'ครีบหาง',parent:t2,attachFace:5,dir:[0,0,-1],size:[.05,.5,.24],hue:.1});
+  r.add({name:'ครีบหลัง',parent:b,attachFace:2,dir:[0,1,0],size:[.05,.18,.3],shift:[0,0,-.04],hue:.1});
+  for(const s of [1,-1]){
+    r.add({name:'ครีบ'+(s>0?'ซ้าย':'ขวา'),parent:b,attachFace:s>0?0:1,dir:[s,0,0],
+      size:[.2,.04,.14],shift:[0,-.06,.1],hue:.1});
+  }
+  return r;
+}
+// งู — ปล้องเรียงไปทางหลัง (−Z) เล็กลงเรื่อยๆ นอนราบกับพื้น
+function tplSnake(){
+  const r=new Rig();
+  const b=r.add({name:'ลำตัว1',dir:[0,1,0],size:[.24,.2,.3],shift:[0,0,.9],hue:.3});
+  r.add({name:'หัว',parent:b,attachFace:4,dir:[0,0,1],size:[.3,.2,.3],shift:[0,.01,0],hue:.32});
+  let prev=b;
+  for(let i=2;i<=7;i++){
+    const k=1-(i-1)*.08;
+    prev=r.add({name:'ลำตัว'+i,parent:prev,attachFace:5,dir:[0,0,-1],
+      size:[.24*k,.2*k,.3],hue:(i%2)?.3:.22});
+  }
+  r.add({name:'ปลายหาง',parent:prev,attachFace:5,dir:[0,0,-1],size:[.08,.07,.3],hue:.3});
+  return r;
+}
+const yawQ=deg=>new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),deg*Math.PI/180);
+// นก — ลำตัวลอยกลางอากาศ ปีกสองท่อนออกซ้าย-ขวา (ท่อนปลายกระพือตามช้ากว่า)
+function tplBird(){
+  const r=new Rig();
+  const b=r.add({name:'ลำตัว',dir:[0,1,0],size:[.36,.34,.5],shift:[0,.6,0],hue:.6});
+  const h=r.add({name:'หัว',parent:b,attachFace:2,dir:[0,1,0],size:[.26,.26,.28],shift:[0,-.04,.16],hue:.62});
+  r.add({name:'จะงอยปาก',parent:h,attachFace:4,dir:[0,0,1],size:[.08,.07,.14],shift:[0,-.02,0],hue:.11});
+  r.add({name:'หางนก',parent:b,attachFace:5,dir:[0,0,-1],size:[.26,.05,.24],shift:[0,.08,0],hue:.6});
+  for(const s of [1,-1]){ const nm=s>0?'ซ้าย':'ขวา', af=s>0?0:1;
+    const w=r.add({name:'ปีก'+nm,parent:b,attachFace:af,dir:[s,0,0],size:[.32,.05,.34],shift:[0,.08,0],hue:.58});
+    r.add({name:'ปลายปีก'+nm,parent:w,attachFace:af,dir:[s,0,0],size:[.28,.04,.26],shift:[0,0,-.03],hue:.55});
+    r.add({name:'ขานก'+nm,parent:b,attachFace:3,dir:[0,-1,0],size:[.05,.2,.05],shift:[s*.09,0,0],hue:.11});
+  }
+  return r;
+}
+// แมงมุม — อก + ท้อง + 8 ขา (ขาบนออกข้างกางเป็นพัด ขาล่างลงพื้น)
+function tplSpider(){
+  const r=new Rig();
+  const b=r.add({name:'ลำตัว',dir:[0,1,0],size:[.34,.2,.34],shift:[0,.34,0],hue:.75});
+  r.add({name:'หัว',parent:b,attachFace:4,dir:[0,0,1],size:[.2,.16,.14],hue:.78});
+  r.add({name:'ท้อง',parent:b,attachFace:5,dir:[0,0,-1],size:[.42,.34,.46],shift:[0,.07,0],hue:.72});
+  const Z=[.12,.04,-.04,-.12], A=[38,12,-12,-38];
+  for(let i=0;i<4;i++) for(const s of [1,-1]){ const nm=(i+1)+(s>0?'ซ้าย':'ขวา'), af=s>0?0:1;
+    const u=r.add({name:'ขา'+nm,parent:b,attachFace:af,dir:[s,0,0],size:[.28,.05,.05],shift:[0,.04,Z[i]],hue:.74,
+      rest:yawQ(-s*A[i])});
+    r.add({name:'ปลายขา'+nm,parent:u,attachFace:af,dir:[0,-1,0],size:[.05,.42,.05],hue:.74});
+  }
+  return r;
+}
+// มังกร — ลำตัวเป็นปล้องแบบงู + ขาหน้า/หลัง + ปีก + คอ หัว เขา
+function tplDragon(){
+  const r=new Rig();
+  const b=r.add({name:'ลำตัว1',dir:[0,1,0],size:[.34,.3,.4],shift:[0,.42,.3],hue:.02});
+  const nk=r.add({name:'คอ',parent:b,attachFace:4,dir:[0,0,1],size:[.18,.18,.28],shift:[0,.06,0],hue:.02});
+  const h=r.add({name:'หัว',parent:nk,attachFace:4,dir:[0,0,1],size:[.26,.22,.34],hue:.04});
+  let prev=b;
+  for(let i=2;i<=4;i++){ const k=1-(i-1)*.1;
+    prev=r.add({name:'ลำตัว'+i,parent:prev,attachFace:5,dir:[0,0,-1],size:[.34*k,.3*k,.36],hue:i%2?.02:.0}); }
+  const t1=r.add({name:'หาง1',parent:prev,attachFace:5,dir:[0,0,-1],size:[.16,.14,.34],hue:.02});
+  r.add({name:'ปลายหาง',parent:t1,attachFace:5,dir:[0,0,-1],size:[.08,.07,.34],hue:.0});
+  const hind=byNameIn(r,'ลำตัว3');
+  for(const s of [1,-1]){ const nm=s>0?'ซ้าย':'ขวา', af=s>0?0:1;
+    r.add({name:'เขา'+nm,parent:h,attachFace:2,dir:[0,1,0],size:[.05,.14,.05],shift:[s*.08,0,-.1],hue:.12});
+    const fu=r.add({name:'ขาหน้าบน'+nm,parent:b,attachFace:3,dir:[0,-1,0],size:[.1,.2,.1],shift:[s*.12,0,.06],hue:.0});
+    const fl=r.add({name:'ขาหน้าล่าง'+nm,parent:fu,attachFace:3,dir:[0,-1,0],size:[.09,.2,.09],hue:.0});
+    addIK(r,fl,3,'IKเท้าหน้า'+nm,[0,0,1]);
+    const hu=r.add({name:'ขาหลังบน'+nm,parent:hind,attachFace:3,dir:[0,-1,0],size:[.11,.2,.11],shift:[s*.1,0,0],hue:.0});
+    const hl=r.add({name:'ขาหลังล่าง'+nm,parent:hu,attachFace:3,dir:[0,-1,0],size:[.1,.2,.1],hue:.0});
+    addIK(r,hl,3,'IKเท้าหลัง'+nm,[0,0,-1]);
+    const w=r.add({name:'ปีก'+nm,parent:b,attachFace:af,dir:[s,0,0],size:[.36,.04,.3],shift:[0,.12,-.05],hue:.08});
+    r.add({name:'ปลายปีก'+nm,parent:w,attachFace:af,dir:[s,0,0],size:[.34,.03,.26],shift:[0,0,-.03],hue:.08});
+  }
+  return r;
+}
+// หนอนผีเสื้อ — ปล้องกลมๆ เรียงไปทางหลัง นอนบนพื้น หัวมีหนวด
+function tplWorm(){
+  const r=new Rig();
+  const b=r.add({name:'ปล้อง1',dir:[0,1,0],size:[.22,.22,.2],shift:[0,0,.7],hue:.25});
+  const h=r.add({name:'หัว',parent:b,attachFace:4,dir:[0,0,1],size:[.24,.24,.2],shift:[0,.02,0],hue:.27});
+  for(const s of [1,-1]) r.add({name:'หนวด'+(s>0?'ซ้าย':'ขวา'),parent:h,attachFace:2,dir:[0,1,0],
+    size:[.03,.14,.03],shift:[s*.07,0,.04],hue:.08});
+  let prev=b;
+  for(let i=2;i<=7;i++) prev=r.add({name:'ปล้อง'+i,parent:prev,attachFace:5,dir:[0,0,-1],
+    size:[.22-(i>5?(i-5)*.03:0),.22-(i>5?(i-5)*.03:0),.2],hue:i%2?.25:.2});
+  return r;
+}
+function byNameIn(r,n){ for(const p of r.parts.values()) if(p.name===n) return p.id; return null; }
+const TPL={ cube:tplCube, biped:tplBiped, chibi:tplChibi, quad:tplQuad, fish:tplFish, snake:tplSnake,
+  bird:tplBird, spider:tplSpider, dragon:tplDragon, worm:tplWorm };
+const TPL_MSG={ cube:'แตะหน้ากล่องแล้วกด ＋ ต่อ', biped:'หุ่นคนพร้อมใช้',
+  chibi:'หุ่นหัวโตพร้อมใช้', quad:'สัตว์สี่ขาพร้อมใช้',
+  fish:'ปลาพร้อมใช้ — ☰ → สร้างวงจรเคลื่อนไหวอัตโนมัติ = ว่ายน้ำ',
+  snake:'งูพร้อมใช้ — ☰ → สร้างวงจรเคลื่อนไหวอัตโนมัติ = เลื้อย',
+  bird:'นกพร้อมใช้ — ☰ → สร้างวงจรเคลื่อนไหวอัตโนมัติ = กระพือปีก',
+  spider:'แมงมุมพร้อมใช้ — ☰ → สร้างวงจรเคลื่อนไหวอัตโนมัติ = เดินสลับขา',
+  dragon:'มังกรพร้อมใช้ — ☰ → สร้างวงจรเคลื่อนไหวอัตโนมัติ = เดิน+กระพือ',
+  worm:'หนอนพร้อมใช้ — ☰ → สร้างวงจรเคลื่อนไหวอัตโนมัติ = ยืดหดเป็นคลื่น' };
+
+/* ═════ STATE ═════ */
+// ความเร็วคลิป = ความยาวคลิป ÷ div (div 1 = ครบคลิปใน 1 วินาที) — fps คำนวณเสมอ ไม่เก็บแยก
+const clip={ len:24, div:1, interp:'linear', keys:[], get fps(){ return this.len/this.div; } };
+let rig=tplBiped();
+let mode='build', selPart=null, selFace=-1, reparentWait=null, mirrorWait=null;
+let frame=0, playing=false, autoKey=true, clipboard=null, rotStep=15;
+let hudTab='size', edgeSnap=false;
+
+function serialize(){ return { v:11,
+  parts:[...rig.parts.values()].map(p=>({id:p.id,name:p.name,parent:p.parent,attachFace:p.attachFace,
+    dir:p.dir,size:p.size,shift:p.shift,boxOff:p.boxOff,hue:p.hue,rest:p.rest.toArray(),
+    ikChain:p.ikChain,pinned:p.pinned,pinPos:p.pinPos,noMesh:p.noMesh,poleDir:p.poleDir,spline:p.spline})),
+  clip:{len:clip.len,div:clip.div,fps:clip.fps,interp:clip.interp,keys:clip.keys} }; }
+function deserialize(o){
+  if(!o||!o.parts) throw new Error('ไม่ใช่ไฟล์ของแอปนี้');
+  rig=new Rig();
+  for(const p of o.parts) rig.add({...p,rest:new THREE.Quaternion().fromArray(p.rest||[0,0,0,1])});
+  pendingEdge=null; updateEdgeHi();
+  if(o.clip){ clip.len=o.clip.len||24;
+    // ไฟล์เก่าเก็บ fps ตรงๆ → แปลงเป็นตัวหารที่ใกล้ที่สุด (1–4)
+    clip.div=o.clip.div||Math.max(1,Math.min(4,Math.round(clip.len/(o.clip.fps||clip.len))));
+    clip.interp=o.clip.interp||(o.clip.step?'step':'linear'); clip.keys=o.clip.keys||[]; }
+  selPart=null; selFace=-1; frame=0; playing=false; stripSig=''; syncSet(); evalAt(0);
+}
+
+/* ═════ ANIM ═════ */
+const poseSnap=()=>{ const o={}; for(const p of rig.parts.values()){
+  o[p.id]={r:p.rot.toArray(),o:p.off.toArray()}; if(p.spline) o[p.id].b=[...p.bend]; } return o; };
+function applyPose(s){ for(const p of rig.parts.values()){ const d=s[p.id]; if(!d)continue;
+  p.rot.fromArray(d.r); p.off.fromArray(d.o); if(p.spline) p.bend=d.b?[...d.b]:[0,0,0]; } }
+function setKey(t){ const i=clip.keys.findIndex(k=>k.t===t),k={t,pose:poseSnap()};
+  if(i>=0) clip.keys[i]=k; else { clip.keys.push(k); clip.keys.sort((a,b)=>a.t-b.t); } stripSig=''; }
+function delKey(t){ clip.keys=clip.keys.filter(k=>k.t!==t); stripSig=''; }
+// รูปแบบไล่เฟรม (u 0→1 ระหว่างสองคีย์) — ค่าเกิน 0..1 ได้ (เลยเป้า/ง้าง) slerp รองรับอยู่แล้ว
+function easeU(u,mode){
+  switch(mode){
+    case 'step': return 0;
+    case 'ease': return u*u*(3-2*u);
+    case 'easein': return u*u*u;
+    case 'easeout': { const x=1-u; return 1-x*x*x; }
+    case 'spring': { const c1=1.70158,c3=c1+1,x=u-1; return 1+c3*x*x*x+c1*x*x; }
+    case 'anticip': { const c1=1.70158,c3=c1+1; return c3*u*u*u-c1*u*u; }
+    case 'bounce': { // ลูกปิงปองตกกระทบเป้าแล้วเด้งเล็กลงเรื่อยๆ
+      const n=7.5625,d=2.75;
+      if(u<1/d) return n*u*u;
+      if(u<2/d){ u-=1.5/d; return n*u*u+.75; }
+      if(u<2.5/d){ u-=2.25/d; return n*u*u+.9375; }
+      u-=2.625/d; return n*u*u+.984375; }
+    case 'elastic': { if(u<=0||u>=1) return u;
+      return Math.pow(2,-10*u)*Math.sin((10*u-.75)*(2*Math.PI/3))+1; }
+  }
+  return u;
+}
+// รูปแบบไล่เฟรม (easing) ที่ใช้กับทั้งตัว
+const INTERP_MODES=[
+  ['linear','เชิงเส้น','#9aa7bd','ความเร็วคงที่'],
+  ['ease','นุ่ม','#5ec27a','ค่อยๆ ออกตัว ค่อยๆ หยุด'],
+  ['easein','ออกตัวช้า','#7fc8e0','เริ่มช้าแล้วเร่ง (เหมือนของตก)'],
+  ['easeout','เบรกนุ่ม','#4fa3c7','พุ่งเร็วแล้วค่อยๆ หยุด'],
+  ['spring','สปริง','#e0c23a','เลยเป้านิดแล้วเด้งกลับ'],
+  ['anticip','ง้างก่อน','#c78be0','ถอยไปทางตรงข้ามก่อนพุ่ง'],
+  ['bounce','ปิงปอง','#f08fb0','กระทบเป้าแล้วเด้งหลายครั้ง'],
+  ['elastic','ยางยืด','#b0e05e','แกว่งสั่นรอบเป้าแล้วนิ่ง'],
+  ['step','กระตุก','#e0703a','ค้างแล้วกระโดดทันที'],
+];
+const partInterp=()=>clip.interp;
+(function buildInterpButtons(){
+  const g=$('interpBtnsGlobal');
+  for(const [k,l,,tip] of INTERP_MODES){ const b=document.createElement('button');
+    b.dataset.a='interp'; b.dataset.mode=k; b.textContent=l; b.title=tip; g.appendChild(b); }
+})();
+function evalAt(t){
+  if(!clip.keys.length) return;
+  const f=clip.keys[0], l=clip.keys[clip.keys.length-1];
+  if(clip.keys.length===1||t<=f.t){ applyPose(f.pose); return; }
+  if(t>=l.t){ applyPose(l.pose); return; }
+  let a=f,b=l;
+  for(let i=0;i<clip.keys.length-1;i++)
+    if(t>=clip.keys[i].t&&t<=clip.keys[i+1].t){ a=clip.keys[i]; b=clip.keys[i+1]; break; }
+  const u0=(b.t-a.t)?(t-a.t)/(b.t-a.t):0, u=easeU(u0,clip.interp);
+  const qa=new THREE.Quaternion(),qb=new THREE.Quaternion();
+  for(const p of rig.parts.values()){
+    const pa=a.pose[p.id],pb=b.pose[p.id]; if(!pa||!pb) continue;
+    const up=u;
+    qa.fromArray(pa.r); qb.fromArray(pb.r); p.rot.copy(qa).slerp(qb,up);
+    p.off.set(pa.o[0]+(pb.o[0]-pa.o[0])*up,pa.o[1]+(pb.o[1]-pa.o[1])*up,pa.o[2]+(pb.o[2]-pa.o[2])*up);
+    if(p.spline){ const ba=pa.b||[0,0,0], bb=pb.b||[0,0,0]; p.bend=ba.map((v,i)=>v+(bb[i]-v)*up); }
+  }
+}
+const byName=n=>[...rig.parts.values()].find(p=>p.name===n);
+function setPose(m,bob){
+  for(const p of rig.parts.values()){ p.rot.identity(); p.off.set(0,0,0); p.bend=[0,0,0]; }
+  // ค่าต่อชิ้น: [แกน,องศา] หรือหลายแกน [[แกน,องศา],[แกน,องศา],...] (คูณต่อกันตามลำดับ)
+  const q=new THREE.Quaternion();
+  for(const k in m){ const p=byName(k); if(!p) continue;
+    const list=Array.isArray(m[k][0])?m[k]:[m[k]];
+    for(const [ax,deg] of list) p.rot.multiply(q.setFromAxisAngle(AX[ax],deg*Math.PI/180)); }
+  const t=byName('ลำตัว'); if(t) t.off.y=bob||0;
+}
+// วงจรคลื่น (ว่าย/เลื้อย) — 8 คีย์ต่อรอบ คีย์สุดท้ายเท่าคีย์แรกจึงวนได้เนียน
+// f(φ) คืน {ชื่อชิ้น:[แกน,องศา]} กับค่าลอยขึ้นลงของลำตัว
+// จุดต่ำสุดของกล่องทั้งหมดในท่าปัจจุบัน — ใช้ยกทั้งตัวให้วางบนพื้นพอดี (y=0)
+function lowestY(){ const {W}=rig.worlds(), v=new THREE.Vector3(); let m=Infinity;
+  for(const p of rig.parts.values()){ if(p.noMesh) continue;
+    const o=rig.offsetOf(p), h=p.size.map(x=>x/2);
+    for(const c of corners(o,h)) m=Math.min(m,v.set(...c).applyMatrix4(W.get(p.id)).y); }
+  return isFinite(m)?m:0; }
+function presetWave(f){
+  clip.keys=[]; clip.len=24; if(clip.div>4) clip.div=1; syncSet();
+  for(let k=0;k<=8;k++){ const ph=k/8*Math.PI*2, o=f(ph); setPose(o.m,0);
+    if(o.bob){ const t=byName(o.root); if(t) t.off.y=o.bob; }
+    if(o.ground){ const t=byName(o.ground); if(t) t.off.y-=lowestY(); }
+    setKey(k*3); }
+  frame=0; evalAt(0); return true;
+}
+function presetSwim(){
+  return presetWave(ph=>{ const sn=x=>Math.sin(ph-x);
+    return { root:'ลำตัว', bob:.03*Math.sin(ph*2), m:{
+      'ลำตัว':[1,5*sn(0)], 'หัว':[1,-6*sn(0)],
+      'ลำตัวท้าย':[1,-12*sn(.9)], 'โคนหาง':[1,-18*sn(1.8)], 'ครีบหาง':[1,-24*sn(2.7)],
+      'ครีบซ้าย':[2,25*Math.sin(ph*2)], 'ครีบขวา':[2,-25*Math.sin(ph*2)] } }; });
+}
+function presetSlither(){
+  return presetWave(ph=>{ const m={'ลำตัว1':[1,10*Math.sin(ph)],'หัว':[1,-14*Math.sin(ph)]};
+    for(let i=2;i<=7;i++) m['ลำตัว'+i]=[1,-20*Math.sin(ph-(i-1)*.8)];
+    m['ปลายหาง']=[1,-22*Math.sin(ph-7*.8)];
+    return {m}; });
+}
+function presetFlap(){
+  return presetWave(ph=>{ const w=38*Math.sin(ph), t=28*Math.sin(ph-.9);
+    return { root:'ลำตัว', bob:-.06*Math.sin(ph), m:{
+      'ปีกซ้าย':[2,w], 'ปีกขวา':[2,-w], 'ปลายปีกซ้าย':[2,t], 'ปลายปีกขวา':[2,-t],
+      'ลำตัว':[0,-4*Math.sin(ph)], 'หางนก':[0,10*Math.sin(ph-.6)], 'หัว':[0,5*Math.sin(ph)],
+      'ขานกซ้าย':[0,-35], 'ขานกขวา':[0,-35] } }; });
+}
+// แมงมุมเดินสลับขาเป็นชุด (tetrapod): ชุด A = 1ซ้าย 2ขวา 3ซ้าย 4ขวา, ชุด B สลับกัน ช้ากว่าครึ่งรอบ
+// ขาที่กำลังก้าวไปหน้าจะยกขึ้น ขาที่อยู่บนพื้นจะดันไปหลัง
+function presetSpiderWalk(){
+  return presetWave(ph=>{ const m={};
+    for(let i=1;i<=4;i++) for(const s of [1,-1]){
+      const grpA=(i%2===1)===(s>0), p=ph+(grpA?0:Math.PI);
+      const swing=16*Math.sin(p), lift=Math.max(0,Math.cos(p))*22;
+      m['ขา'+i+(s>0?'ซ้าย':'ขวา')]=[[1,-s*swing],[2,s*lift]];
+      m['ปลายขา'+i+(s>0?'ซ้าย':'ขวา')]=[2,-s*lift*.6];
+    }
+    m['ท้อง']=[1,4*Math.sin(ph*2)];
+    return { root:'ลำตัว', bob:.015*Math.sin(ph*2), m }; });
+}
+function presetDragon(){
+  return presetWave(ph=>{ const m={}, fl=30*Math.sin(ph), ft=22*Math.sin(ph-.9);
+    m['ปีกซ้าย']=[2,fl]; m['ปีกขวา']=[2,-fl]; m['ปลายปีกซ้าย']=[2,ft]; m['ปลายปีกขวา']=[2,-ft];
+    for(let i=2;i<=4;i++) m['ลำตัว'+i]=[1,-8*Math.sin(ph-(i-1)*.8)];
+    m['หาง1']=[1,-14*Math.sin(ph-3.2)]; m['ปลายหาง']=[1,-18*Math.sin(ph-4)];
+    m['คอ']=[1,6*Math.sin(ph+.5)];
+    // ขาแบบสัตว์สี่ขา: ทแยงคู่กัน (หน้าซ้าย+หลังขวา) สลับกับอีกคู่
+    for(const [n,off] of [['หน้า',0],['หลัง',Math.PI]]) for(const s of [1,-1]){
+      const p=ph+off+(s>0?0:Math.PI), sw=24*Math.sin(p);
+      m['ขา'+n+'บน'+(s>0?'ซ้าย':'ขวา')]=[0,-sw];
+      m['ขา'+n+'ล่าง'+(s>0?'ซ้าย':'ขวา')]=[0,Math.max(0,Math.cos(p))*30*(n==='หน้า'?1:-1)];
+    }
+    return { root:'ลำตัว1', bob:.02*Math.sin(ph*2), m }; });
+}
+// หนอนยืดหด: คลื่นก้มเงย (แกน X) วิ่งจากหัวไปหาง ปล้องโก่งขึ้นเป็นหลังค่อมแล้วยืดออก
+function presetInch(){
+  return presetWave(ph=>{ const m={'ปล้อง1':[0,-6*Math.sin(ph)],'หัว':[0,8*Math.sin(ph+.6)],
+      'หนวดซ้าย':[2,12*Math.sin(ph*2)],'หนวดขวา':[2,-12*Math.sin(ph*2)]};
+    // ความยาวคลื่นพอดีตัว 1 ลูก (6 ปล้อง) มุมรวมทั้งโซ่เลยกลับมาแนวราบ ไม่ม้วนจมพื้น
+    for(let i=2;i<=7;i++) m['ปล้อง'+i]=[0,18*Math.sin(ph-(i-1)*Math.PI/3)];
+    return {m, ground:'ปล้อง1'}; });
+}
+function presetWalk(){
+  if(byName('ปีกซ้าย')&&byName('ลำตัว1')) return presetDragon();
+  if(byName('ปีกซ้าย')) return presetFlap();
+  if(byName('ขา1ซ้าย')) return presetSpiderWalk();
+  if(byName('ปล้อง1')) return presetInch();
+  if(byName('ครีบหาง')) return presetSwim();
+  if(byName('ลำตัว1')&&byName('ลำตัว2')) return presetSlither();
+  const two=!!byName('ขาบนซ้าย'), four=!!byName('ขาหน้าบนซ้าย');
+  if(!two&&!four){ say('ต้องมีขา (หรือเป็นปลา/งู) ก่อนถึงจะสร้างวงจรเคลื่อนไหวได้'); return false; }
+  clip.keys=[]; clip.len=24; if(clip.div>4) clip.div=1; syncSet();
+  let A,B,C,D;
+  if(two){
+    A={'ขาบนซ้าย':[0,-28],'ขาล่างซ้าย':[0,6],'ขาบนขวา':[0,24],'ขาล่างขวา':[0,34],
+       'แขนบนซ้าย':[1,24],'แขนบนขวา':[1,24],'แขนล่างซ้าย':[1,-12],'แขนล่างขวา':[1,12]};
+    B={'ขาบนซ้าย':[0,2],'ขาล่างซ้าย':[0,10],'ขาบนขวา':[0,-12],'ขาล่างขวา':[0,44],
+       'แขนบนซ้าย':[1,0],'แขนบนขวา':[1,0],'แขนล่างซ้าย':[1,-12],'แขนล่างขวา':[1,12]};
+    C={'ขาบนซ้าย':[0,24],'ขาล่างซ้าย':[0,34],'ขาบนขวา':[0,-28],'ขาล่างขวา':[0,6],
+       'แขนบนซ้าย':[1,-24],'แขนบนขวา':[1,-24],'แขนล่างซ้าย':[1,-12],'แขนล่างขวา':[1,12]};
+    D={'ขาบนซ้าย':[0,-12],'ขาล่างซ้าย':[0,44],'ขาบนขวา':[0,2],'ขาล่างขวา':[0,10],
+       'แขนบนซ้าย':[1,0],'แขนบนขวา':[1,0],'แขนล่างซ้าย':[1,-12],'แขนล่างขวา':[1,12]};
+  } else {
+    A={'ขาหน้าบนซ้าย':[0,-24],'ขาหน้าล่างซ้าย':[0,16],'ขาหน้าบนขวา':[0,22],'ขาหน้าล่างขวา':[0,8],
+       'ขาหลังบนซ้าย':[0,22],'ขาหลังล่างซ้าย':[0,-18],'ขาหลังบนขวา':[0,-22],'ขาหลังล่างขวา':[0,-6]};
+    B={'ขาหน้าบนซ้าย':[0,0],'ขาหน้าล่างซ้าย':[0,26],'ขาหน้าบนขวา':[0,0],'ขาหน้าล่างขวา':[0,4],
+       'ขาหลังบนซ้าย':[0,0],'ขาหลังล่างซ้าย':[0,-10],'ขาหลังบนขวา':[0,0],'ขาหลังล่างขวา':[0,-22]};
+    C={'ขาหน้าบนซ้าย':[0,22],'ขาหน้าล่างซ้าย':[0,8],'ขาหน้าบนขวา':[0,-24],'ขาหน้าล่างขวา':[0,16],
+       'ขาหลังบนซ้าย':[0,-22],'ขาหลังล่างซ้าย':[0,-6],'ขาหลังบนขวา':[0,22],'ขาหลังล่างขวา':[0,-18]};
+    D={'ขาหน้าบนซ้าย':[0,0],'ขาหน้าล่างซ้าย':[0,4],'ขาหน้าบนขวา':[0,0],'ขาหน้าล่างขวา':[0,26],
+       'ขาหลังบนซ้าย':[0,0],'ขาหลังล่างซ้าย':[0,-22],'ขาหลังบนขวา':[0,0],'ขาหลังล่างขวา':[0,-10]};
+  }
+  setPose(A,0); setKey(0); setPose(B,-.04); setKey(6);
+  setPose(C,0); setKey(12); setPose(D,-.04); setKey(18);
+  setPose(A,0); setKey(24); frame=0; evalAt(0); return true;
+}
+
+/* ═════ HISTORY ═════ */
+const past=[];
+function commit(){ past.push(JSON.stringify(serialize())); if(past.length>50) past.shift(); }
+function undo(){ if(!past.length){ say('ไม่มีอะไรให้ย้อน'); return; }
+  deserialize(JSON.parse(past.pop())); refreshAll(); save(); say('ย้อนกลับแล้ว'); }
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(serialize()));
+  $('saveInfo').textContent='บันทึกอัตโนมัติ '+new Date().toLocaleTimeString('th-TH');
+  }catch(e){ $('saveInfo').textContent='บันทึกไม่ได้'; } }
+function loadSaved(){ try{ const s=localStorage.getItem(KEY); if(!s) return false;
+  deserialize(JSON.parse(s)); return true; }catch(e){ return false; } }
+
+/* ═════ SHADER ═════ */
+// ค่าความเป็น PS1 — ตั้งในโค้ดเท่านั้น (ผู้ใช้ไม่ต้องปรับ)
+//   jitter  จุดสั่น (vertex snap) 0–1        res    ความละเอียดกริดที่ vertex สแนป (แนวนอน)
+//   affine  ลายเท็กซ์เจอร์บิดเบี้ยว 0–1       bits   จำนวนบิตสีต่อช่อง (2–8)
+//   pixel   ขนาดพิกเซลจอ (render ต่ำแล้วขยาย) 1 = ไม่หยาบ
+const PS1={ jitter:1, res:240, affine:1, bits:5, pixel:2 };
+const U={ uJitter:{value:PS1.jitter}, uRes:{value:new THREE.Vector2(PS1.res,PS1.res*.75)}, uAffine:{value:PS1.affine},
+  uBits:{value:PS1.bits}, uMap:{value:null}, uLightDir:{value:new THREE.Vector3(.45,.86,.55).normalize()},
+  uLayerBias:{value:1e-3}, uOrtho:{value:0} };
+const SNAP=`uniform float uJitter; uniform vec2 uRes;
+vec4 ps1Clip(vec3 p, out float w){
+  vec4 c=projectionMatrix*modelViewMatrix*vec4(p,1.0);
+  vec2 g=uRes*0.5, ndc=c.xy/c.w;
+  c.xy=mix(ndc,floor(ndc*g+0.5)/g,uJitter)*c.w; w=c.w; return c; }`;
+// กันผิวทับกันกระพริบ (z-fighting): ดันชิ้นที่อยู่ลึกในลำดับชั้นให้ถอยห่างกล้องนิดเดียวตามสัดส่วนระยะ
+// (สเกลในพิกัดกล้อง ตำแหน่งบนจอจึงไม่เปลี่ยน) ผิวที่ซ้อนกันพอดี ชิ้นแม่/ท่อนบนจะชนะเสมอ
+// โหมด orthographic: สเกล xy จะทำให้ภาพเลื่อน จึงดันเฉพาะแกนลึก (z)
+const SNAP_LAYER=`${SNAP} uniform float uLayerBias; uniform float uOrtho; attribute float layer;
+vec4 ps1ClipLayer(vec3 p, out float w){
+  vec4 v=modelViewMatrix*vec4(p,1.0); float lb=1.0+layer*uLayerBias;
+  v.xy*=mix(lb,1.0,uOrtho); v.z*=lb;
+  vec4 c=projectionMatrix*v;
+  vec2 g=uRes*0.5, ndc=c.xy/c.w;
+  c.xy=mix(ndc,floor(ndc*g+0.5)/g,uJitter)*c.w; w=c.w; return c; }`;
+const meshMat=new THREE.ShaderMaterial({ uniforms:U,
+  vertexShader:`${SNAP_LAYER}
+    attribute vec3 tint; uniform vec3 uLightDir;
+    varying vec2 vUvW; varying vec2 vUvP; varying float vW; varying float vLit; varying vec3 vT;
+    void main(){ float w; vec4 c=ps1ClipLayer(position,w);
+      vW=w; vUvP=uv; vUvW=uv*w; vT=tint;
+      vLit=0.36+0.76*max(dot(normalize(normal),uLightDir),0.0); gl_Position=c; }`,
+  fragmentShader:`precision mediump float;
+    uniform sampler2D uMap; uniform float uAffine; uniform float uBits;
+    varying vec2 vUvW; varying vec2 vUvP; varying float vW; varying float vLit; varying vec3 vT;
+    float b2(vec2 a){ a=floor(a); return fract(a.x*0.5+a.y*a.y*0.75); }
+    float b4(vec2 a){ return b2(a*0.5)*0.25+b2(a); }
+    void main(){
+      vec2 uv=mix(vUvP,vUvW/vW,uAffine);
+      vec3 col=texture2D(uMap,uv).rgb*vT*vLit;
+      float lv=pow(2.0,uBits)-1.0;
+      col+=(b4(gl_FragCoord.xy)-0.46)/lv;
+      gl_FragColor=vec4(clamp(floor(col*lv+0.5)/lv,0.0,1.0),1.0); }`
+});
+function flat(c,op,dt){
+  const m=new THREE.ShaderMaterial({
+    uniforms:{ uJitter:U.uJitter,uRes:U.uRes,uColor:{value:new THREE.Color(c)},uOp:{value:op} },
+    transparent:op<1, depthTest:dt!==false,
+    vertexShader:`${SNAP} void main(){ float w; gl_Position=ps1Clip(position,w); }`,
+    fragmentShader:`precision mediump float; uniform vec3 uColor; uniform float uOp;
+      void main(){ gl_FragColor=vec4(uColor,uOp); }` });
+  m.depthWrite=op>=1; return m;
+}
+const wireMat=flat(0x3b465e,1,true), selMat=flat(0xe0703a,1,false),
+      faceMat=flat(0xffb066,.5,true), pivMat=flat(0x49d0e0,1,false),
+      pivSelMat=flat(0xffd166,1,false), linkMat=flat(0x2f6e7a,1,false);
+function makeTex(){
+  const c=document.createElement('canvas'); c.width=c.height=64; const x=c.getContext('2d');
+  x.fillStyle='#b8bec8'; x.fillRect(0,0,64,64);
+  for(let i=0;i<1100;i++){ x.fillStyle=Math.random()<.5?'rgba(0,0,0,.16)':'rgba(255,255,255,.18)';
+    x.fillRect(Math.random()*64|0,Math.random()*64|0,1,1); }
+  x.strokeStyle='rgba(40,50,70,.5)';
+  for(let i=0;i<=64;i+=16){ x.beginPath();x.moveTo(i+.5,0);x.lineTo(i+.5,64);x.stroke();
+    x.beginPath();x.moveTo(0,i+.5);x.lineTo(64,i+.5);x.stroke(); }
+  const t=new THREE.CanvasTexture(c);
+  t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter;
+  t.generateMipmaps=false; t.wrapS=t.wrapT=THREE.RepeatWrapping; return t;
+}
+U.uMap.value=makeTex();
+
+/* ═════ SCENE ═════ */
+const renderer=new THREE.WebGLRenderer({antialias:false});
+renderer.setClearColor(0x0d0f14); document.body.appendChild(renderer.domElement);
+const scene=new THREE.Scene();
+scene.add(new THREE.GridHelper(10,10,0x2a3244,0x1c222e));
+
+/* ═════ เข็มทิศบนพื้น (บอกหน้า/หลัง/ซ้าย/ขวา ของตัวละคร — หน้า = +Z) ═════ */
+function dirLabel(txt,color){
+  const c=document.createElement('canvas'); c.width=128; c.height=64; const x=c.getContext('2d');
+  x.font='bold 40px sans-serif'; x.textAlign='center'; x.textBaseline='middle';
+  x.lineWidth=6; x.strokeStyle='rgba(13,15,20,.9)'; x.strokeText(txt,64,34);
+  x.fillStyle=color; x.fillText(txt,64,34);
+  const t=new THREE.CanvasTexture(c); t.minFilter=THREE.LinearFilter;
+  // วาดก่อนทุกอย่าง + ไม่เขียน depth → โมเดลทับป้ายเสมอ ป้ายไม่บังตัวละคร (สำคัญตอนมุมตรง/ortho)
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:false,alphaTest:.5,depthTest:false,depthWrite:false}));
+  s.renderOrder=-1; s.scale.set(1,.5,1); return s;
+}
+const dirGroup=new THREE.Group(); scene.add(dirGroup);
+{
+  const R=1.9, Y=.01;
+  for(const [txt,col,x,z] of [['หน้า','#ffb066',0,R],['หลัง','#8a94a8',0,-R],['ซ้าย','#e0503c',R,0],['ขวา','#4fa0e6',-R,0]]){
+    const s=dirLabel(txt,col); s.position.set(x*1.15,.25,z*1.15); dirGroup.add(s);
+  }
+  // ลูกศรชี้ไปด้านหน้า
+  const ar=new THREE.Shape();
+  ar.moveTo(-.07,.35); ar.lineTo(.07,.35); ar.lineTo(.07,R-.28); ar.lineTo(.2,R-.28);
+  ar.lineTo(0,R); ar.lineTo(-.2,R-.28); ar.lineTo(-.07,R-.28); ar.closePath();
+  const am=new THREE.Mesh(new THREE.ShapeGeometry(ar),
+    new THREE.MeshBasicMaterial({color:0xffb066,transparent:true,opacity:.55,side:THREE.DoubleSide,depthWrite:false}));
+  am.rotation.x=Math.PI/2; am.position.y=Y; dirGroup.add(am);
+  // วงแหวนจางๆ
+  const ring=new THREE.Mesh(new THREE.RingGeometry(R-.02,R+.02,48),
+    new THREE.MeshBasicMaterial({color:0x2f3a52,side:THREE.DoubleSide,depthWrite:false}));
+  ring.rotation.x=-Math.PI/2; ring.position.y=Y; dirGroup.add(ring);
+}
+const perspCam=new THREE.PerspectiveCamera(50,1,.05,100);
+const orthoCam=new THREE.OrthographicCamera(-1,1,1,-1,-50,100);
+let camera=perspCam, isOrtho=false;
+camera.position.set(3,2.1,3.6);
+const controls=new OrbitControls(camera,renderer.domElement);
+const TAN_HALF_FOV=Math.tan(perspCam.fov*Math.PI/360);
+// ระยะเทียบเท่ากล้อง perspective (ใช้กำหนดขนาด gizmo ฯลฯ ให้ดูเท่ากันทั้งสองโหมด)
+function camDist(pos){
+  if(!isOrtho) return camera.position.distanceTo(pos);
+  return (orthoCam.top/orthoCam.zoom)/TAN_HALF_FOV;
+}
+function fitOrtho(){ const a=perspCam.aspect, h=orthoCam.top;
+  orthoCam.left=-h*a; orthoCam.right=h*a; orthoCam.bottom=-h; orthoCam.updateProjectionMatrix(); }
+// สลับ perspective ↔ orthographic โดยรักษามุมมอง/ขนาดที่เห็นบนจอไว้เท่าเดิม
+function setOrtho(on){
+  if(on===isOrtho) return;
+  const tgt=controls.target, dir=camera.position.clone().sub(tgt).normalize();
+  if(on){
+    const d=perspCam.position.distanceTo(tgt);
+    orthoCam.top=d*TAN_HALF_FOV; orthoCam.zoom=1; fitOrtho();
+    orthoCam.position.copy(perspCam.position); orthoCam.quaternion.copy(perspCam.quaternion);
+    camera=orthoCam;
+  } else {
+    const d=(orthoCam.top/orthoCam.zoom)/TAN_HALF_FOV;
+    perspCam.position.copy(tgt).add(dir.multiplyScalar(d)); perspCam.lookAt(tgt);
+    camera=perspCam;
+  }
+  isOrtho=on; U.uOrtho.value=on?1:0;
+  controls.object=camera; controls.update();
+  $('bOrtho').classList.toggle('on',on);
+  $('bOrtho').textContent=on?'Ortho':'Persp';
+}
+controls.target.set(0,1,0); controls.enableDamping=true; controls.dampingFactor=.12;
+controls.rotateSpeed=.8;
+if(THREE.TOUCH) controls.touches={ONE:THREE.TOUCH.ROTATE,TWO:THREE.TOUCH.DOLLY_PAN};
+
+const G=()=>new THREE.BufferGeometry();
+const objM=new THREE.Mesh(G(),meshMat), wire=new THREE.LineSegments(G(),wireMat),
+      selW=new THREE.LineSegments(G(),selMat), hiF=new THREE.Mesh(G(),faceMat),
+      piv=new THREE.LineSegments(G(),pivMat), pivS=new THREE.LineSegments(G(),pivSelMat),
+      link=new THREE.LineSegments(G(),linkMat);
+wire.renderOrder=1; hiF.renderOrder=2; selW.renderOrder=3;
+link.renderOrder=4; piv.renderOrder=5; pivS.renderOrder=6;
+scene.add(objM,wire,selW,hiF,piv,pivS,link);
+
+/* ═════ GIZMO (ลาก IK control) ═════ */
+const GIZ_AXES=[
+  {axis:new THREE.Vector3(1,0,0),color:0xe0503c},
+  {axis:new THREE.Vector3(0,1,0),color:0x5ec27a},
+  {axis:new THREE.Vector3(0,0,1),color:0x4fa0e6},
+];
+const GIZ_LEN=.42, GIZ_HS=.075;
+const gizGroup=new THREE.Group(); gizGroup.visible=false; gizGroup.renderOrder=20; scene.add(gizGroup);
+const gizHandles=GIZ_AXES.map(a=>{
+  const mat=new THREE.MeshBasicMaterial({color:a.color,depthTest:false,transparent:true});
+  const mesh=new THREE.Mesh(new THREE.BoxGeometry(GIZ_HS,GIZ_HS,GIZ_HS),mat);
+  mesh.position.copy(a.axis.clone().multiplyScalar(GIZ_LEN)); mesh.renderOrder=21;
+  const lg=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),mesh.position]);
+  const line=new THREE.Line(lg,new THREE.LineBasicMaterial({color:a.color,depthTest:false}));
+  line.renderOrder=20;
+  gizGroup.add(line,mesh);
+  return mesh;
+});
+const gizCenter=new THREE.Mesh(new THREE.SphereGeometry(GIZ_HS*1.15,12,10),
+  new THREE.MeshBasicMaterial({color:0xffe066,depthTest:false,transparent:true}));
+gizCenter.renderOrder=22; gizGroup.add(gizCenter);
+
+/* ═════ LOCATOR (จุดควบคุมไม่มี mesh — แตะเลือกได้) ═════ */
+let locSize=.08;
+const locGeo=new THREE.SphereGeometry(1,10,8);
+const locMat=new THREE.MeshBasicMaterial({color:0x49d0e0,depthTest:false,transparent:true,opacity:.85});
+const locatorGroup=new THREE.Group(); locatorGroup.renderOrder=15; scene.add(locatorGroup);
+
+/* ═════ ซ่อนจุดหมุน/gizmo บนโมเดล (ปุ่มตา 👁) ═════ */
+let overlayHidden=false, pivOn=true;
+function applyOverlayVisibility(){
+  piv.visible=pivOn&&!overlayHidden;
+  pivS.visible=pivOn&&!overlayHidden;
+  link.visible=pivOn&&!overlayHidden;
+  document.body.classList.toggle('ovHide',overlayHidden);
+  updateGizmo();
+  refreshAll();
+}
+// เส้นขอบ / จุดหมุน — ปุ่มในเมนู ⚙ และปุ่มลัดใต้ Persp ใช้สถานะเดียวกัน
+function toggleWire(){ wire.visible=!wire.visible;
+  for(const id of ['bWire','bWireQ']) $(id).classList.toggle('on',wire.visible);
+  say(wire.visible?'แสดงเส้นขอบแล้ว':'ซ่อนเส้นขอบแล้ว'); }
+function togglePiv(){ pivOn=!pivOn; applyOverlayVisibility();
+  for(const id of ['bPiv','bPivQ']) $(id).classList.toggle('on',pivOn);
+  say(pivOn?'แสดงจุดหมุนแล้ว':'ซ่อนจุดหมุนแล้ว'); }
+$('bWireQ').onclick=toggleWire;
+$('bPivQ').onclick=togglePiv;
+
+/* ═════ ไฮไลต์เส้นขอบ (สำหรับเลือก edge ไว้ตั้งจุดหมุน) ═════ */
+let edgePickMode=false, edgePickFor='pivot', pendingEdge=null;
+const edgeHiGeo=new THREE.BufferGeometry();
+edgeHiGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(6),3));
+const edgeHiMesh=new THREE.Line(edgeHiGeo,new THREE.LineBasicMaterial({color:0xffe066,linewidth:3,depthTest:false}));
+edgeHiMesh.renderOrder=25; edgeHiMesh.visible=false; scene.add(edgeHiMesh);
+function updateEdgeHi(){
+  if(!pendingEdge){ edgeHiMesh.visible=false; return; }
+  const par=rig.parts.get(pendingEdge.partId); if(!par){ edgeHiMesh.visible=false; return; }
+  const {W}=rig.worlds(); const pw=W.get(par.id); if(!pw){ edgeHiMesh.visible=false; return; }
+  const o=rig.offsetOf(par), h=[par.size[0]/2,par.size[1]/2,par.size[2]/2];
+  const C=corners(o,h), [ia,ib]=EDGES[pendingEdge.edgeIdx];
+  const a=new THREE.Vector3(C[ia][0],C[ia][1],C[ia][2]).applyMatrix4(pw);
+  const b=new THREE.Vector3(C[ib][0],C[ib][1],C[ib][2]).applyMatrix4(pw);
+  const arr=edgeHiGeo.attributes.position.array;
+  arr[0]=a.x;arr[1]=a.y;arr[2]=a.z; arr[3]=b.x;arr[4]=b.y;arr[5]=b.z;
+  edgeHiGeo.attributes.position.needsUpdate=true;
+  edgeHiGeo.computeBoundingSphere();
+  edgeHiMesh.visible=true;
+}
+function nearestEdgeIndex(part,mx,my,r){
+  const {W}=rig.worlds(); const m=W.get(part.id); if(!m) return -1;
+  const o=rig.offsetOf(part), h=[part.size[0]/2,part.size[1]/2,part.size[2]/2];
+  const C=corners(o,h).map(c=>{
+    const v=new THREE.Vector3(c[0],c[1],c[2]).applyMatrix4(m).project(camera);
+    return {x:(v.x*.5+.5)*r.width, y:(-v.y*.5+.5)*r.height};
+  });
+  let best=-1,bestD=32;
+  for(let i=0;i<EDGES.length;i++){
+    const [ia,ib]=EDGES[i], A=C[ia], B=C[ib];
+    const dx=B.x-A.x,dy=B.y-A.y, len2=dx*dx+dy*dy;
+    let t=len2>1e-9?((mx-A.x)*dx+(my-A.y)*dy)/len2:0; t=Math.max(0,Math.min(1,t));
+    const d=Math.hypot(mx-(A.x+dx*t),my-(A.y+dy*t));
+    if(d<bestD){ bestD=d; best=i; }
+  }
+  return best;
+}
+function nearestCornerIndex(part,mx,my,r){
+  const {W}=rig.worlds(); const m=W.get(part.id); if(!m) return -1;
+  const o=rig.offsetOf(part), h=[part.size[0]/2,part.size[1]/2,part.size[2]/2];
+  let best=-1,bestD=32;
+  corners(o,h).forEach((c,i)=>{
+    const v=new THREE.Vector3(c[0],c[1],c[2]).applyMatrix4(m).project(camera);
+    const d=Math.hypot(mx-(v.x*.5+.5)*r.width,my-(-v.y*.5+.5)*r.height);
+    if(d<bestD){ bestD=d; best=i; }
+  });
+  return best;
+}
+function pickEdgeAt(mx,my,r){
+  edgePickMode=false;
+  const p=rig.parts.get(selPart);
+  if(!p){ say('เลือกชิ้นก่อนแล้วค่อยเลือก edge'); return; }
+  if(edgePickFor==='pivotv'){
+    const ci=nearestCornerIndex(p,mx,my,r);
+    if(ci<0){ say('แตะไม่ใกล้มุมพอ ลองแตะใหม่ใกล้ๆ มุมกล่อง'); return; }
+    pivotToVertex(p,ci); return;
+  }
+  const idx=nearestEdgeIndex(p,mx,my,r);
+  if(idx<0){ say('แตะไม่ใกล้เส้นขอบพอ ลองแตะใหม่ใกล้ๆ เส้นสีฟ้า'); return; }
+  pivotToEdge(p,idx);
+}
+function updateLocators(W){
+  while(locatorGroup.children.length) locatorGroup.remove(locatorGroup.children[0]);
+  locatorGroup.visible=!overlayHidden;
+  if(overlayHidden) return;
+  for(const p of rig.parts.values()){
+    if(!p.noMesh) continue;
+    const m=W.get(p.id); if(!m) continue;
+    const mesh=new THREE.Mesh(locGeo,locMat);
+    mesh.position.setFromMatrixPosition(m);
+    mesh.scale.setScalar(locSize);
+    mesh.userData.partId=p.id;
+    locatorGroup.add(mesh);
+  }
+}
+function updateGizmo(){
+  const p=rig.parts.get(selPart);
+  // ชิ้นที่เป็นคอนโทรล (ikChain>0) หรือชิ้นราก (จุดศูนย์กลางร่างกาย ไม่มีแม่) ลากอิสระได้ทั้งคู่
+  const showPose=mode==='pose'&&!!p&&(p.ikChain>0||p.parent==null)&&!overlayHidden;
+  // โหมดปั้น: ลูกศร X/Y/Z ที่กลางกล่อง = ลากย้ายทั้งชิ้น (กล่อง+จุดหมุน ชิ้นลูกตามไปด้วย)
+  const showBuild=mode==='build'&&!!p&&!p.spline&&!overlayHidden&&!edgePickMode;
+  const show=showPose||showBuild;
+  gizGroup.visible=show;
+  updateFaceGiz();
+  if(!show) return;
+  let pos;
+  if(showBuild&&!p.noMesh){ const {W}=rig.worlds();
+    pos=new THREE.Vector3(...rig.offsetOf(p)).applyMatrix4(W.get(p.id)); }
+  else pos=worldPosOf(p);
+  gizGroup.position.copy(pos);
+  gizGroup.scale.setScalar(Math.max(.25,camDist(pos)*.22));
+}
+
+/* ═════ FACE GIZMO (โหมดปั้น: ลากลูกศรที่หน้ากล่อง = ปรับขนาดด้านนั้น หน้าตรงข้ามอยู่กับที่) ═════ */
+const faceGiz=new THREE.Group(); faceGiz.visible=false; scene.add(faceGiz);
+const fgLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(0,1,0)]),
+  new THREE.LineBasicMaterial({color:0xffffff,depthTest:false,transparent:true}));
+const fgHandle=new THREE.Mesh(new THREE.BoxGeometry(.2,.2,.2),
+  new THREE.MeshBasicMaterial({color:0xffffff,depthTest:false,transparent:true}));
+fgHandle.position.y=1;
+// กล่องชนที่ใหญ่กว่าตัวจับ (มองไม่เห็น) ให้แตะโดนง่ายบนมือถือ — raycast ไม่สนค่า visible
+const fgHit=new THREE.Mesh(new THREE.BoxGeometry(.45,1.3,.45),new THREE.MeshBasicMaterial());
+fgHit.position.y=.7; fgHit.visible=false;
+fgLine.renderOrder=23; fgHandle.renderOrder=24;
+faceGiz.add(fgLine,fgHandle,fgHit);
+let faceDrag=null;
+function faceGizFrame(p,fi){
+  const {W,Q}=rig.worlds();
+  const c=rig.faceCenter(p,fi), n=FACE_N[fi];
+  return { pos:new THREE.Vector3(c[0],c[1],c[2]).applyMatrix4(W.get(p.id)),
+           axis:new THREE.Vector3(n[0],n[1],n[2]).applyQuaternion(Q.get(p.id)).normalize() };
+}
+function updateFaceGiz(){
+  const p=rig.parts.get(selPart);
+  const show=mode==='build'&&!!p&&selFace>=0&&!p.noMesh&&!overlayHidden&&!edgePickMode;
+  faceGiz.visible=show;
+  if(!show) return;
+  const {pos,axis}=faceGizFrame(p,selFace);
+  faceGiz.position.copy(pos);
+  faceGiz.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),axis);
+  faceGiz.scale.setScalar(Math.max(.2,camDist(pos)*.16));
+  // สีส้ม (สีเดียวกับไฮไลต์หน้า) แยกจากลูกศรย้าย X/Y/Z ที่เป็นสีแกน
+  const col=faceDrag?0xffe066:0xff9a3c;
+  fgLine.material.color.setHex(col); fgHandle.material.color.setHex(col);
+}
+function faceGizHit(mx,my,r){
+  if(!faceGiz.visible) return false;
+  ptrToRay(mx,my,r);
+  return ray.intersectObjects([fgHandle,fgHit],false).length>0;
+}
+// ระนาบที่มีแกนลากอยู่ในตัว และหันเข้าหากล้องมากที่สุด (เหมือน gizmo ท่าทาง)
+function axisDragPlane(axis,origin){
+  const view=new THREE.Vector3(); camera.getWorldDirection(view);
+  let nrm=view.clone().sub(axis.clone().multiplyScalar(view.dot(axis)));
+  if(nrm.lengthSq()<1e-6) nrm=new THREE.Vector3().crossVectors(axis,camera.up);
+  if(nrm.lengthSq()<1e-6) nrm.set(0,0,1);
+  return new THREE.Plane().setFromNormalAndCoplanarPoint(nrm.normalize(),origin);
+}
+function axisDragT(e,axis,origin,plane){
+  const r=el.getBoundingClientRect(); ptrToRay(e.clientX-r.left,e.clientY-r.top,r);
+  const hit=new THREE.Vector3();
+  if(!ray.ray.intersectPlane(plane,hit)) return null;
+  return hit.sub(origin).dot(axis);
+}
+function startFaceDrag(e){
+  const p=rig.parts.get(selPart); if(!p) return;
+  const {pos,axis}=faceGizFrame(p,selFace), plane=axisDragPlane(axis,pos);
+  const t0=axisDragT(e,axis,pos,plane); if(t0==null) return;
+  commit(); controls.enabled=false;
+  const prevJitter=U.uJitter.value; U.uJitter.value=0;
+  faceDrag={ pointerId:e.pointerId, axis, origin:pos, plane, t0, prevJitter,
+             size0:[...p.size], boxOff0:[...p.boxOff] };
+  try{ el.setPointerCapture(e.pointerId); }catch(err){}
+}
+function moveFaceDrag(e){
+  const p=rig.parts.get(selPart); if(!p||!faceDrag) return;
+  const t=axisDragT(e,faceDrag.axis,faceDrag.origin,faceDrag.plane); if(t==null) return;
+  const n=FACE_N[selFace], a=axisOf(n), s0=faceDrag.size0[a];
+  const ns=Math.round(Math.max(.05,Math.min(3,s0+t-faceDrag.t0))*100)/100, d=ns-s0;
+  p.size[a]=ns;
+  p.boxOff=[...faceDrag.boxOff0];
+  // แกนต่อ (dir): กล่องยื่นจากจุดหมุนไปทาง dir — ลากหน้าปลายไม่ต้องเลื่อน, ลากหน้าโคนต้องเลื่อนโคนออกไป
+  // แกนอื่น: กล่องอยู่กลาง boxOff — เลื่อนครึ่งหนึ่งให้หน้าฝั่งตรงข้ามอยู่ที่เดิม
+  if(a===axisOf(p.dir)){ if(n[a]!==p.dir[a]) p.boxOff[a]+=n[a]*d; }
+  else p.boxOff[a]+=n[a]*d/2;
+  refreshAll();
+  say('ขนาด '+'XYZ'[a]+' = '+ns.toFixed(2));
+}
+function endFaceDrag(){
+  if(!faceDrag) return;
+  U.uJitter.value=faceDrag.prevJitter; faceDrag=null; controls.enabled=true;
+  done('');
+}
+
+/* ═════ จุดหมุนบนเส้นขอบ (ข้อพับแบบบานพับ) ═════
+   ย้ายจุดหมุนไปกึ่งกลางเส้น edge (หรือมุม vertex) แล้วเลื่อน boxOff กลับเท่ากันในพิกัดของชิ้นเอง
+   กล่องและชิ้นลูกทั้งหมดจึงอยู่ที่เดิม (ชิ้นลูกอ้างอิงจาก offsetOf ที่รวม boxOff อยู่แล้ว) มีแค่แกนหมุนที่ย้าย */
+// E = ตำแหน่งจุดหมุนใหม่ในพิกัดของชิ้นเอง (จุดหมุนเดิมคือจุดกำเนิด 0,0,0)
+function movePivotLocal(p,E,msg){
+  if(E.lengthSq()<1e-10){ say('จุดหมุนอยู่ตรงนี้อยู่แล้ว'); return; }
+  commit();
+  const D=E.clone().applyQuaternion(p.rest);
+  p.shift=[p.shift[0]+D.x,p.shift[1]+D.y,p.shift[2]+D.z];
+  p.boxOff=[p.boxOff[0]-E.x,p.boxOff[1]-E.y,p.boxOff[2]-E.z];
+  done(msg);
+}
+function pivotToEdge(p,edgeIdx){
+  const o=rig.offsetOf(p), h=[p.size[0]/2,p.size[1]/2,p.size[2]/2];
+  const C=corners(o,h), [ia,ib]=EDGES[edgeIdx];
+  const E=new THREE.Vector3(...C[ia]).add(new THREE.Vector3(...C[ib])).multiplyScalar(.5);
+  movePivotLocal(p,E,'ย้ายจุดหมุนไปกึ่งกลางเส้นขอบแล้ว');
+}
+function pivotToVertex(p,ci){
+  const o=rig.offsetOf(p), h=[p.size[0]/2,p.size[1]/2,p.size[2]/2];
+  movePivotLocal(p,new THREE.Vector3(...corners(o,h)[ci]),'ย้ายจุดหมุนไปที่มุมแล้ว');
+}
+
+/* ═════ หาง Spline ═════
+   กล่องที่ตั้ง p.spline จะไม่ถูกวาดเป็นกล่อง แต่เป็นท่อเหลี่ยม N ปล้องตามเส้นโค้ง
+   1) เป้าหมาย: ไล่จากโคน (หน้ากล่องฝั่งจุดหมุน) ไปตามทิศกล่อง แต่ละปล้องหมุนสะสมตามค่า bend
+      [งอขึ้นลง, งอซ้ายขวา, ม้วนปลาย] (องศา) — งอกระจายเท่าๆ กัน ม้วนกระจุกไปทางปลาย
+   2) ฟิสิกส์: จุดตามเป้าหมายแบบสปริง+ความเฉื่อย (jiggle 0 = ตรงเป้าหมายเป๊ะ) โคนตรึง ความยาวปล้องคงที่
+   3) เฟรมแต่ละปล้อง: หมุนแบบ shortest-arc ต่อกันเป็นโซ่ ใช้ทั้งวาดในแอปและเป็นกระดูกตอนส่งออก */
+const tails=new Map();   // partId → { N, pts, prev, mesh, geo }
+function tailGeom(p){
+  const a=axisOf(p.dir), d=new THREE.Vector3(...p.dir);
+  const U=a!==1?new THREE.Vector3(0,1,0):new THREE.Vector3(0,0,1);
+  const P=new THREE.Vector3().crossVectors(d,U).normalize();
+  const o=rig.offsetOf(p), L=p.size[a], N=p.spline.segs;
+  return { d,U,P,L,N,seg:L/N, hP:p.size[axisOf(P.toArray().map(Math.round))]/2,
+    hU:p.size[axisOf(U.toArray())]/2, base:new THREE.Vector3(...o).addScaledVector(d,-L/2) };
+}
+function tailTargets(p,Wp){
+  const g=tailGeom(p), R=Math.PI/180, [bp,by,bc]=p.bend||[0,0,0];
+  const B=new THREE.Quaternion(), r=new THREE.Quaternion(), q2=new THREE.Quaternion();
+  const out=[g.base.clone()], cur=g.base.clone();
+  for(let k=0;k<g.N;k++){
+    const wk=2*(k+1)/(g.N*(g.N+1));
+    r.setFromAxisAngle(g.P,(bp/g.N+bc*wk)*R).multiply(q2.setFromAxisAngle(g.U,by/g.N*R));
+    B.multiply(r);
+    cur.addScaledVector(g.d.clone().applyQuaternion(B),g.seg); out.push(cur.clone());
+  }
+  return out.map(v=>v.applyMatrix4(Wp));
+}
+function makeTail(p){
+  const N=p.spline.segs, verts=(4*N+2)*6;
+  const geo=new THREE.BufferGeometry();
+  for(const [n,k] of [['position',3],['uv',2],['normal',3],['tint',3],['layer',1]])
+    geo.setAttribute(n,new THREE.BufferAttribute(new Float32Array(verts*k),k));
+  const mesh=new THREE.Mesh(geo,meshMat); mesh.userData.partId=p.id; scene.add(mesh);
+  return { N, pts:[], prev:[], mesh, geo };
+}
+function resetTail(p,t,Wp){ t.pts=tailTargets(p,Wp); t.prev=t.pts.map(v=>v.clone()); }
+function syncTails(){
+  for(const [id,t] of tails){ const p=rig.parts.get(id);
+    if(!p||!p.spline||p.spline.segs!==t.N){ scene.remove(t.mesh); t.geo.dispose(); tails.delete(id); } }
+  const fresh=[...rig.parts.values()].filter(p=>p.spline&&!tails.has(p.id));
+  if(!fresh.length) return;
+  const {W}=rig.worlds();
+  for(const p of fresh){ const t=makeTail(p); resetTail(p,t,W.get(p.id)); tails.set(p.id,t); updateTailMesh(p,t); }
+}
+function resetTails(){ const {W}=rig.worlds();
+  for(const [id,t] of tails){ const p=rig.parts.get(id); if(p) resetTail(p,t,W.get(id)); } }
+function stepTails(dt){
+  const {W}=rig.worlds(), f=dt*60;
+  for(const [id,t] of tails){
+    const p=rig.parts.get(id); if(!p) continue;
+    const tg=tailTargets(p,W.get(id)), g=tailGeom(p), jig=p.spline.jiggle;
+    // ความแกว่ง (0–1.5) → แรงดึงกลับของปลาย kTip (ยิ่งน้อยยิ่งนิ่ม) กับการคงความเร็ว damp (ยิ่งมากยิ่งเด้งเลยเป้า)
+    // กราฟโค้งแบบลูกบาศก์ให้ช่วงกลางแถบเลื่อนเห็นผลชัด ไม่ใช่มาออกแรงแค่ช่วงท้าย
+    const j1=Math.min(jig,1), kTip=jig<=1?.02+.98*Math.pow(1-j1,3):Math.max(.006,.02-.028*(jig-1));
+    const damp=Math.pow(.84+.10*j1+.06*Math.max(0,Math.min(jig,1.5)-1),f);
+    t.pts[0].copy(tg[0]); t.prev[0].copy(tg[0]);
+    for(let i=1;i<t.pts.length;i++){
+      const pt=t.pts[i], pv=t.prev[i];
+      const vx=(pt.x-pv.x)*damp, vy=(pt.y-pv.y)*damp, vz=(pt.z-pv.z)*damp;
+      pv.copy(pt); pt.x+=vx; pt.y+=vy; pt.z+=vz;
+      // โคนแข็ง ปลายพลิ้ว: ปล้องใกล้โคนดึงกลับแรงกว่า
+      const ki=1-(1-kTip)*(.35+.65*i/(t.pts.length-1));
+      pt.lerp(tg[i],1-Math.pow(1-ki,f));
+    }
+    // ความยาวปล้องคงที่ ไล่จากโคน (follow-the-leader)
+    const seg=g.seg*new THREE.Vector3().setFromMatrixScale(W.get(id)).x;
+    for(let i=1;i<t.pts.length;i++){
+      const dv=t.pts[i].clone().sub(t.pts[i-1]), len=dv.length();
+      t.pts[i].copy(t.pts[i-1]).addScaledVector(len>1e-9?dv.divideScalar(len):tg[i].clone().sub(tg[i-1]).normalize(),seg);
+    }
+  }
+}
+// เฟรม (world quaternion) ของแต่ละปล้อง — Qp คือการหมุนโลกของชิ้นเอง
+function tailFrames(p,t,Qp){
+  const d=new THREE.Vector3(...p.dir), F=[]; let prev=Qp.clone();
+  for(let k=0;k<t.N;k++){
+    const dirW=t.pts[k+1].clone().sub(t.pts[k]); const len=dirW.length();
+    const cur=d.clone().applyQuaternion(prev);
+    const q=len>1e-9?new THREE.Quaternion().setFromUnitVectors(cur,dirW.divideScalar(len)).multiply(prev):prev.clone();
+    F.push(q); prev=q;
+  }
+  return F;
+}
+function updateTailMeshes(){
+  const {Q}=rig.worlds();
+  for(const [id,t] of tails){ const p=rig.parts.get(id); if(p) updateTailMesh(p,t,Q.get(id)); }
+}
+function updateTailMesh(p,t,Qp){
+  if(!Qp) Qp=rig.worlds().Q.get(p.id);
+  const g=tailGeom(p), F=tailFrames(p,t,Qp), N=t.N;
+  let depth=0; for(let q=p.parent;q!=null&&rig.parts.has(q);q=rig.parts.get(q).parent) depth++;
+  const ring=k=>{ const q=F[Math.min(k,N-1)], sc=1+(p.spline.taper-1)*k/N;
+    const P=g.P.clone().applyQuaternion(q).multiplyScalar(g.hP*sc), U=g.U.clone().applyQuaternion(q).multiplyScalar(g.hU*sc);
+    const c=t.pts[k];
+    return [c.clone().sub(P).sub(U),c.clone().add(P).sub(U),c.clone().add(P).add(U),c.clone().sub(P).add(U)]; };
+  const R=[]; for(let k=0;k<=N;k++) R.push(ring(k));
+  const A=t.geo.attributes, pos=A.position.array, uv=A.uv.array, nr=A.normal.array, tn=A.tint.array, ly=A.layer.array;
+  const col=new THREE.Color().setHSL(p.hue,.4,p.id===selPart?.8:.66);
+  let vi=0; const e1=new THREE.Vector3(), e2=new THREE.Vector3(), n=new THREE.Vector3();
+  const quad=(a,b,c,d,out,w,h)=>{
+    e1.subVectors(b,a); e2.subVectors(d,a); n.crossVectors(e1,e2);
+    if(n.dot(out)<0){ [b,d]=[d,b]; n.negate(); }
+    n.normalize();
+    const vs=[a,b,c,a,c,d], us=[[0,0],[w,0],[w,h],[0,0],[w,h],[0,h]];
+    for(let i=0;i<6;i++){ pos.set([vs[i].x,vs[i].y,vs[i].z],vi*3); uv.set(us[i],vi*2);
+      nr.set([n.x,n.y,n.z],vi*3); tn.set([col.r,col.g,col.b],vi*3); ly[vi]=depth; vi++; }
+  };
+  const mid=new THREE.Vector3();
+  for(let k=0;k<N;k++) for(let j=0;j<4;j++){
+    const a=R[k][j], b=R[k][(j+1)%4], c=R[k+1][(j+1)%4], d=R[k+1][j];
+    mid.copy(a).add(b).add(c).add(d).multiplyScalar(.25).sub(t.pts[k].clone().lerp(t.pts[k+1],.5));
+    quad(a,b,c,d,mid.clone(),a.distanceTo(b),a.distanceTo(d));
+  }
+  const tg0=t.pts[0].clone().sub(t.pts[1]), tgN=t.pts[N].clone().sub(t.pts[N-1]);
+  quad(R[0][0],R[0][1],R[0][2],R[0][3],tg0,R[0][0].distanceTo(R[0][1]),R[0][1].distanceTo(R[0][2]));
+  quad(R[N][0],R[N][1],R[N][2],R[N][3],tgN,R[N][0].distanceTo(R[N][1]),R[N][1].distanceTo(R[N][2]));
+  for(const k in A) A[k].needsUpdate=true;
+  t.geo.computeBoundingSphere();
+}
+
+/* ═════ bake สำหรับ export (.glb) ═════
+   ท่าทางร่างกาย + หางที่แกว่งตามฟิสิกส์ อัดเป็นคีย์เฟรมกระดูก — ไม่แก้ rig/clip ที่แก้ไขอยู่จริง
+   (snapshot ก่อนเริ่ม แล้ว restore กลับให้เหมือนเดิมทุกครั้งไม่ว่าจะสำเร็จหรือ error) */
+function bakeAll(){
+  const savedPose=poseSnap(), savedFrame=frame, savedPlaying=playing;
+  const tailSnaps=[...tails].map(([id,t])=>({ t, pts:t.pts.map(v=>v.clone()), prev:t.prev.map(v=>v.clone()) }));
+  playing=false;
+  try{
+    const fps=clip.fps, Nf=Math.max(1,Math.round(clip.len))+1;
+    const bodyTracks=bakeBodyTracksForGLTF();
+    if(clip.keys.length) evalAt(0);
+    resetTails();
+    // ซับสเต็ปฟิสิกส์ที่ dt คงที่ละเอียด (ไม่ผูกกับ fps ของคีย์เฟรม) ให้เสถียรเท่าตอนพรีวิวสด
+    const SUBSTEPS=Math.max(1,Math.round(60/fps)), dt=1/(fps*SUBSTEPS), SETTLE_STEPS=45*SUBSTEPS;
+    for(let s=0;s<SETTLE_STEPS;s++) stepTails(dt);
+    // วอร์มด้วยการเล่นคลิปวนก่อน (ไม่บันทึก) ให้หางเข้าจังหวะแกว่งที่ซ้ำเป็นรอบ — ไฟล์เล่นวนไม่กระตุก
+    const Nloop=Math.max(1,Math.round(clip.len)), WARM_LOOPS=2;
+    for(let w=0;w<WARM_LOOPS;w++) for(let f=1;f<=Nloop;f++) for(let s=1;s<=SUBSTEPS;s++){
+      evalAt((f-1)+s/SUBSTEPS); stepTails(dt);
+    }
+    evalAt(0);
+    const tacc=[...tails].map(([id,t])=>({ id, t, p:rig.parts.get(id),
+      bones:Array.from({length:t.N},()=>({times:[],quats:[]})) })).filter(T=>T.p);
+    const recordFrame=(f)=>{
+      const {Q}=rig.worlds();
+      for(const T of tacc){
+        const Qp=Q.get(T.id), F=tailFrames(T.p,T.t,Qp);
+        F.forEach((q,k)=>{ const l=(k?F[k-1]:Qp).clone().invert().multiply(q);
+          T.bones[k].times.push(f/fps); T.bones[k].quats.push(l.x,l.y,l.z,l.w); });
+      }
+    };
+    recordFrame(0);
+    for(let f=1; f<Nf; f++){
+      for(let s=1;s<=SUBSTEPS;s++){
+        if(clip.keys.length) evalAt((f-1)+s/SUBSTEPS);
+        stepTails(dt);
+      }
+      recordFrame(f);
+    }
+    // ส่วนต่างที่ยังเหลือระหว่างเฟรมท้ายกับเฟรมแรก กระจายเฉลี่ยทั้งคลิป ให้เฟรมท้าย == เฟรมแรกเป๊ะ
+    if(Nf>1){
+      const q0=new THREE.Quaternion(), qL=new THREE.Quaternion(), d=new THREE.Quaternion(),
+            corr=new THREE.Quaternion(), q=new THREE.Quaternion(), I=new THREE.Quaternion();
+      for(const bone of tacc.flatMap(T=>T.bones)){
+        const Q=bone.quats, L=(Nf-1)*4;
+        q0.fromArray(Q,0); qL.fromArray(Q,L);
+        d.copy(q0).multiply(qL.invert());
+        if(d.w<0) d.set(-d.x,-d.y,-d.z,-d.w);
+        for(let f=1;f<Nf;f++){
+          corr.copy(I).slerp(d,f/(Nf-1));
+          q.fromArray(Q,f*4).premultiply(corr).toArray(Q,f*4);
+        }
+      }
+    }
+    const tailsOut=tacc.map(T=>({ partId:T.id, N:T.t.N, bones:T.bones }));
+    return { fps, len:clip.len, frames:Nf, bodyTracks, tails:tailsOut };
+  } finally {
+    applyPose(savedPose);
+    frame=savedFrame; playing=savedPlaying;
+    for(const {t,pts,prev} of tailSnaps){ t.pts=pts; t.prev=prev; }
+    refreshAll();
+  }
+}
+// แทร็กท่าทางร่างกายสำหรับ glTF — key ที่มีอยู่แล้ว (sparse) ใช้ตรงๆ ได้เลยถ้า interp เป็น linear/step
+// (glTF รองรับคีย์เวลาไม่เท่ากันต่อ track อยู่แล้ว) ส่วน ease/spring ไม่มี mode ตรงใน glTF เลย sample เพิ่ม
+// แล้วส่งออกเป็น LINEAR แทน
+function bakeBodyTracksForGLTF(){
+  const fps=clip.fps;
+  const tracks=[];
+  for(const p of rig.parts.values()){
+    const im=partInterp(p), dense=(im!=='linear'&&im!=='step');
+    const S=(im==='bounce'||im==='elastic')?24:8;   // เด้งหลายครั้งต้อง sample ถี่กว่า
+    const relevant=clip.keys.filter(k=>k.pose[p.id]);
+    if(relevant.length<1) continue;
+    const times=[], quats=[], offs=[];
+    if(relevant.length===1||!dense){
+      for(const k of relevant){ const d=k.pose[p.id];
+        times.push(k.t/fps); quats.push(...d.r); offs.push(...d.o); }
+    } else {
+      for(let i=0;i<relevant.length-1;i++){
+        const a=relevant[i], b=relevant[i+1], da=a.pose[p.id], db=b.pose[p.id];
+        const qa=new THREE.Quaternion().fromArray(da.r), qb=new THREE.Quaternion().fromArray(db.r);
+        const oa=new THREE.Vector3().fromArray(da.o), ob=new THREE.Vector3().fromArray(db.o);
+        for(let s=0;s<S;s++){
+          const u0=s/S, u=easeU(u0,im);
+          const q=qa.clone().slerp(qb,u), o=oa.clone().lerp(ob,u);
+          times.push((a.t+(b.t-a.t)*u0)/fps); quats.push(q.x,q.y,q.z,q.w); offs.push(o.x,o.y,o.z);
+        }
+      }
+      const last=relevant[relevant.length-1], dl=last.pose[p.id];
+      times.push(last.t/fps); quats.push(...dl.r); offs.push(...dl.o);
+    }
+    tracks.push({ partId:p.id, times, quats, offs, step:im==='step' });
+  }
+  return tracks;
+}
+
+let triMap=[];
+const corners=(o,h)=>[[o[0]-h[0],o[1]-h[1],o[2]-h[2]],[o[0]+h[0],o[1]-h[1],o[2]-h[2]],
+  [o[0]+h[0],o[1]+h[1],o[2]-h[2]],[o[0]-h[0],o[1]+h[1],o[2]-h[2]],
+  [o[0]-h[0],o[1]-h[1],o[2]+h[2]],[o[0]+h[0],o[1]-h[1],o[2]+h[2]],
+  [o[0]+h[0],o[1]+h[1],o[2]+h[2]],[o[0]-h[0],o[1]+h[1],o[2]+h[2]]];
+function faceUV(p,fi){ const a=Math.floor(fi/2);
+  const su=a===0?p.size[2]:p.size[0], sv=a===1?p.size[2]:p.size[1];
+  return [[0,0],[su,0],[su,sv],[0,sv]]; }
+function buildAll(W){
+  const pos=[],uvs=[],nrm=[],tnt=[],lyr=[]; triMap=[];
+  const wl=[],sw=[],fq=[],pv=[],ps=[],lk=[];
+  const v=new THREE.Vector3(),nv=new THREE.Vector3(),col=new THREE.Color();
+  for(const p of rig.parts.values()){
+    const m=W.get(p.id); if(!m) continue;
+    const nm=new THREE.Matrix3().getNormalMatrix(m);
+    if(p.spline){ /* วาดแยกใน updateTailMesh (ชิ้นที่เลือกจะสว่างขึ้น) */ }
+    else if(!p.noMesh){
+      const o=rig.offsetOf(p),h=[p.size[0]/2,p.size[1]/2,p.size[2]/2];
+      const C=corners(o,h).map(c=>{ v.set(c[0],c[1],c[2]).applyMatrix4(m); return [v.x,v.y,v.z]; });
+      col.setHSL(p.hue,.4,.66);
+      let depth=0; for(let q=p.parent;q!=null&&rig.parts.has(q);q=rig.parts.get(q).parent) depth++;
+      for(let fi=0;fi<6;fi++){
+        const q=FACE_IDX[fi],n=FACE_N[fi],uv=faceUV(p,fi);
+        nv.set(n[0],n[1],n[2]).applyMatrix3(nm).normalize();
+        for(const tri of [[0,1,2],[0,2,3]]){
+          triMap.push({p:p.id,f:fi});
+          for(const k of tri){ const c=C[q[k]];
+            pos.push(c[0],c[1],c[2]); uvs.push(uv[k][0],uv[k][1]);
+            nrm.push(nv.x,nv.y,nv.z); tnt.push(col.r,col.g,col.b); lyr.push(depth); }
+        }
+      }
+      const dst=(p.id===selPart)?sw:wl;
+      for(const e of EDGES) dst.push(...C[e[0]],...C[e[1]]);
+      if(p.id===selPart&&selFace>=0){
+        const q=FACE_IDX[selFace],n=FACE_N[selFace];
+        nv.set(n[0],n[1],n[2]).applyMatrix3(nm).normalize().multiplyScalar(.006);
+        for(const tri of [[0,1,2],[0,2,3]]) for(const k of tri){ const c=C[q[k]];
+          fq.push(c[0]+nv.x,c[1]+nv.y,c[2]+nv.z); }
+      }
+    }
+    const org=new THREE.Vector3(0,0,0).applyMatrix4(m),s=p.noMesh?locSize*2:.09;
+    const tgt=(p.id===selPart)?ps:pv;
+    for(let a=0;a<3;a++){
+      const d=AX[a].clone().applyMatrix3(nm).normalize().multiplyScalar(s);
+      tgt.push(org.x-d.x,org.y-d.y,org.z-d.z,org.x+d.x,org.y+d.y,org.z+d.z);
+    }
+    if(p.parent!=null&&W.has(p.parent)){
+      const po=new THREE.Vector3(0,0,0).applyMatrix4(W.get(p.parent));
+      lk.push(po.x,po.y,po.z,org.x,org.y,org.z);
+    }
+  }
+  const g=G();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
+  g.setAttribute('normal',new THREE.Float32BufferAttribute(nrm,3));
+  g.setAttribute('tint',new THREE.Float32BufferAttribute(tnt,3));
+  g.setAttribute('layer',new THREE.Float32BufferAttribute(lyr,1));
+  return {g,wl,sw,fq,pv,ps,lk};
+}
+const lineGeom=a=>{ const g=G();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(a,3)); return g; };
+
+function refreshAll(){
+  syncTails();
+  const {W}=rig.worlds(), b=buildAll(W);
+  objM.geometry.dispose(); objM.geometry=b.g;
+  wire.geometry.dispose(); wire.geometry=lineGeom(b.wl);
+  selW.geometry.dispose(); selW.geometry=lineGeom(b.sw);
+  hiF.geometry.dispose(); hiF.geometry=lineGeom(b.fq); hiF.visible=b.fq.length>0;
+  piv.geometry.dispose(); piv.geometry=lineGeom(b.pv);
+  pivS.geometry.dispose(); pivS.geometry=lineGeom(b.ps);
+  link.geometry.dispose(); link.geometry=lineGeom(b.lk);
+  updateLocators(W); updateEdgeHi();
+  syncHead(); syncHud(); drawList(); syncMore(); updateGizmo(); drawTool();
+}
+let statT=0;
+function say(t){ const s=$('stat'); s.textContent=t; s.style.display=t?'block':'none';
+  clearTimeout(statT); if(t) statT=setTimeout(()=>{ s.style.display='none'; },2400); }
+function done(msg){ refreshAll(); save(); if(msg!==undefined&&msg!=='') say(msg); }
+
+/* ═════ START SCREEN ═════ */
+function openStart(){
+  document.body.classList.add('start');
+  closeSheet(); closeHud();
+  $('bResume').style.display = rig.parts.size ? 'block' : 'none';
+}
+const closeStart=()=>document.body.classList.remove('start');
+function applyTemplate(name){
+  const fn=TPL[name]; if(!fn) return;
+  if(rig.parts.size) commit();
+  rig=fn(); clip.keys=[]; stripSig=''; frame=0; playing=false;
+  pendingEdge=null; updateEdgeHi();
+  selPart = (name==='cube') ? 0 : null;
+  selFace = (name==='cube') ? 2 : -1;
+  closeStart(); setMode('build'); done(TPL_MSG[name]);
+}
+$('cards').addEventListener('click',e=>{
+  const c=e.target.closest('.card'); if(!c) return;
+  applyTemplate(c.dataset.tpl);
+});
+$('crTog').onclick=()=>{ const o=$('credits').classList.toggle('open');
+  $('crTog').textContent=o?'ซ่อนเครดิต ▴':'เครดิต ▾'; };
+$('bResume').onclick=()=>{ closeStart(); say('กลับมาทำต่อได้เลย'); };
+
+/* ═════ PICK ═════ */
+const ray=new THREE.Raycaster(), ptr=new THREE.Vector2();
+function pick(mx,my){
+  const r=renderer.domElement.getBoundingClientRect();
+  ptr.set(mx/r.width*2-1,-(my/r.height)*2+1);
+  ray.setFromCamera(ptr,camera);
+  const hitLoc=ray.intersectObjects(locatorGroup.children,false)[0];
+  let pid=null,face=-1;
+  if(hitLoc){ pid=hitLoc.object.userData.partId; }
+  else{
+    let hitMesh=ray.intersectObject(objM,false)[0];
+    const hitTail=tails.size?ray.intersectObjects([...tails.values()].map(t=>t.mesh),false)[0]:null;
+    if(hitTail&&(!hitMesh||hitTail.distance<hitMesh.distance)){
+      pid=hitTail.object.userData.partId; hitMesh=null;
+    } else if(hitMesh){ const t=triMap[hitMesh.faceIndex]; pid=t.p; face=t.f; }
+  }
+  if(mirrorWait!=null){ mirrorPicked(pid); return; }
+  if(reparentWait!=null){
+    const ch=reparentWait; reparentWait=null;
+    if(pid==null||pid===ch||rig.subtree(ch).includes(pid)){ refreshAll(); say('เลือกชิ้นแม่ไม่ถูกต้อง'); return; }
+    doReparent(ch,pid); return;
+  }
+  if(pid==null){ selPart=null; selFace=-1; refreshAll(); return; }
+  selPart=pid;
+  if(mode==='build'&&face>=0){ selFace=face; say(rig.parts.get(pid).name+' · ด้าน'+FN[face]+' — ลากลูกศรเพื่อปรับขนาด'); }
+  else { selFace=-1; say(rig.parts.get(pid).name); }
+  refreshAll();
+}
+// ── เครื่องหมายจุดควบคุม: บอกว่าแต่ละข้อขยับแบบ FK (หมุนเอง) หรือ IK (ลากปลาย) ──
+const CTRL_KIND={
+  fk:  {tag:'FK · หมุนทีละข้อ',  col:'#ff9a3c'},
+  ik:  {tag:'IK · ลากได้เลย',     col:'#49d0e0'},
+  ikj: {tag:'IK หมุนข้อนี้ให้',    col:'#b07cff'},
+  root:{tag:'ราก · ย้ายทั้งตัว',  col:'#ffe066'},
+};
+function ctrlKinds(){
+  const out=new Map(), driven=new Set();
+  for(const p of rig.parts.values()) if(p.ikChain>0) for(const j of ikAncestors(p,p.ikChain)) driven.add(j.id);
+  for(const p of rig.parts.values()){
+    out.set(p.id, (p.parent==null||!rig.parts.has(p.parent))?'root' : p.ikChain>0?'ik' : driven.has(p.id)?'ikj' : 'fk');
+  }
+  return out;
+}
+function ctrlKindOf(p){ return p?ctrlKinds().get(p.id):null; }
+let ctrlSig='';
+function updateCtrlMarks(){
+  const box=$('ctrlMarks');
+  if(mode!=='pose'||overlayHidden){ if(ctrlSig!==''){ box.innerHTML=''; ctrlSig=''; } return; }
+  const kinds=ctrlKinds();
+  const sig=[...kinds].map(([id,k])=>id+k).join(',')+'|'+selPart;
+  if(sig!==ctrlSig){
+    ctrlSig=sig; box.innerHTML='';
+    for(const [id,k] of kinds){ const d=document.createElement('i');
+      d.className='mk cm '+k+(id===selPart?' sel':''); d.dataset.pid=id; box.appendChild(d); }
+    const k=kinds.get(selPart);
+    if(k){ const t=document.createElement('div'); t.className='cmTag'; t.dataset.pid=selPart;
+      t.style.background=CTRL_KIND[k].col; t.textContent=CTRL_KIND[k].tag; box.appendChild(t); }
+  }
+  const {W}=rig.worlds(), v=new THREE.Vector3();
+  for(const d of box.children){
+    const m=W.get(+d.dataset.pid); if(!m){ d.style.display='none'; continue; }
+    v.setFromMatrixPosition(m).project(camera);
+    d.style.display=v.z<1?'':'none';
+    d.style.left=((v.x*.5+.5)*innerWidth)+'px'; d.style.top=((-v.y*.5+.5)*innerHeight)+'px';
+  }
+}
+function setLegend(on){ document.body.classList.toggle('noLegend',!on);
+  try{ localStorage.setItem('boxbeat.legend',on?'1':'0'); }catch(e){} }
+try{ if(localStorage.getItem('boxbeat.legend')==='0') document.body.classList.add('noLegend'); }catch(e){}
+$('ctrlLegend').onclick=e=>{
+  if(e.target.closest('[data-lg="hide"]')){ setLegend(false); say('ซ่อนคำอธิบายแล้ว — กด ○◆ ? เพื่อเปิดอีกครั้ง'); return; }
+  openLearn('ikfk');
+};
+$('bLegend').onclick=()=>setLegend(true);
+function selStep(d){
+  const o=rig.order(); if(!o.length) return;
+  let i=o.findIndex(p=>p.id===selPart);
+  i=(i<0)?0:(i+d+o.length)%o.length;
+  selPart=o[i].id; selFace=-1; refreshAll(); say(o[i].name);
+}
+
+/* ═════ EDIT ═════ */
+function doExtrude(){
+  if(selPart==null){ say('แตะเลือกกล่องก่อน'); return; }
+  const p=rig.parts.get(selPart);
+  if(p.spline){ say('หาง Spline ต่อชิ้นเพิ่มไม่ได้ — แปลงกลับเป็นกล่องก่อน'); return; }
+  const fi=selFace>=0?selFace:faceOfDir(p.dir);
+  commit();
+  const n=FACE_N[fi],a=axisOf(n),size=[...p.size];
+  size[a]=.45;
+  const nid=rig.add({parent:p.id,attachFace:fi,dir:n,size,hue:(p.hue+.08)%1});
+  selPart=nid; selFace=fi;
+  done('ต่อชิ้นใหม่ที่ด้าน'+FN[fi]);
+}
+function doAddControl(){
+  if(selPart==null){ say('เลือกชิ้นที่จะต่อจุดควบคุมก่อน'); return; }
+  const p=rig.parts.get(selPart);
+  if(p.spline){ say('หาง Spline ต่อจุดควบคุมไม่ได้'); return; }
+  const fi=selFace>=0?selFace:faceOfDir(p.dir);
+  commit();
+  const n=FACE_N[fi];
+  const nid=rig.add({parent:p.id,attachFace:fi,dir:n,size:[.12,.12,.12],
+    hue:(p.hue+.5)%1,ikChain:2,noMesh:true});
+  rig.parts.get(nid).name='คอนโทรล'+nid;
+  selPart=nid; selFace=-1; closeSheet();
+  done('เพิ่มจุดควบคุมแล้ว — ไปโหมดท่าทางแล้วลากที่ gizmo ได้เลย');
+}
+const swapLR=n=>/ซ้าย/.test(n)?n.replace('ซ้าย','ขวา'):/ขวา/.test(n)?n.replace('ขวา','ซ้าย'):n;
+// ตำแหน่งโลกแบบท่านิ่ง (ไม่รวมการหมุน/เลื่อนของโหมดท่าทาง)
+function restWorlds(){
+  const W=new Map(), one=new THREE.Vector3(1,1,1);
+  for(const p of rig.order()){
+    const lc=new THREE.Matrix4().compose(new THREE.Vector3(...rig.pivotOf(p)),p.rest,one);
+    const pw=(p.parent!=null&&W.has(p.parent))?W.get(p.parent):null;
+    W.set(p.id,pw?pw.clone().multiply(lc):lc);
+  }
+  return W;
+}
+/* สะท้อนชิ้น srcId (พร้อมชิ้นลูก) ข้าม "ระนาบกระจก" ที่ผ่านกึ่งกลางกล่องของชิ้น mirrorId
+   ตั้งฉากกับแกนซ้าย-ขวา (X) ของชิ้นนั้น — ชิ้นรากของชุดคำนวณในพิกัดโลก: W' = S·W·Fx
+   (S = สะท้อนข้ามระนาบ, Fx = กลับแกน X ของชิ้นเอง) แล้วแปลงกลับเป็นค่าเทียบกับชิ้นแม่เดิม
+   ชิ้นลูกในชุดใช้สูตรกลับแกน X ในพิกัดท้องถิ่น (แม่ของมันถูกกลับแกนแบบเดียวกันแล้ว จึงตรงเป๊ะ) */
+function doMirror(srcId,mirrorId,noCommit){
+  const src=rig.parts.get(srcId), mo=rig.parts.get(mirrorId); if(!src||!mo) return;
+  if(!noCommit) commit();
+  const W=restWorlds(), Wm=W.get(mirrorId);
+  const C=new THREE.Vector3(...rig.offsetOf(mo)).applyMatrix4(Wm);
+  const n=new THREE.Vector3(1,0,0).transformDirection(Wm).normalize(), d=n.dot(C);
+  const S=new THREE.Matrix4().set(
+    1-2*n.x*n.x, -2*n.x*n.y, -2*n.x*n.z, 2*d*n.x,
+    -2*n.y*n.x, 1-2*n.y*n.y, -2*n.y*n.z, 2*d*n.y,
+    -2*n.z*n.x, -2*n.z*n.y, 1-2*n.z*n.z, 2*d*n.z,
+    0,0,0,1);
+  const Fx=new THREE.Matrix4().makeScale(-1,1,1);
+  const par=src.parent!=null?rig.parts.get(src.parent):null;
+  const Wp=par?W.get(par.id):new THREE.Matrix4();
+  const local=Wp.clone().invert().multiply(S).multiply(W.get(srcId)).multiply(Fx);
+  const T=new THREE.Vector3(), Q=new THREE.Quaternion(), sc=new THREE.Vector3();
+  local.decompose(T,Q,sc);
+  // หน้าที่ต่อกับแม่: สะท้อนทิศหน้าเดิมในพิกัดโลกแล้วเลือกหน้าของแม่ที่ตรงที่สุด
+  let rootAf=src.attachFace, rootShift=T.toArray();
+  if(par&&src.attachFace>=0){
+    const rp=new THREE.Matrix4().extractRotation(Wp), rpi=rp.clone().invert();
+    const nw=new THREE.Vector3(...FACE_N[src.attachFace]).applyMatrix4(rp);
+    nw.addScaledVector(n,-2*n.dot(nw)).applyMatrix4(rpi);
+    let best=-1; FACE_N.forEach((f,i)=>{ const dd=f[0]*nw.x+f[1]*nw.y+f[2]*nw.z;
+      if(best<0||dd>best.d) best={i,d:dd}; });
+    rootAf=best.i;
+    const fc=rig.faceCenter(par,rootAf);
+    rootShift=[T.x-fc[0],T.y-fc[1],T.z-fc[2]];
+  }
+  const ids=rig.subtree(srcId), map=new Map();
+  for(const i of ids){
+    const s=rig.parts.get(i), isRoot=(i===srcId);
+    let af=s.attachFace; if(!isRoot){ if(af===0) af=1; else if(af===1) af=0; }
+    const nid=rig.add({parent:isRoot?s.parent:map.get(s.parent), attachFace:isRoot?rootAf:af,
+      dir:[-s.dir[0],s.dir[1],s.dir[2]], size:s.size,
+      shift:isRoot?rootShift:[-s.shift[0],s.shift[1],s.shift[2]],
+      boxOff:[-s.boxOff[0],s.boxOff[1],s.boxOff[2]],
+      name:(/ซ้าย|ขวา/.test(s.name)?swapLR(s.name):s.name+' (สะท้อน)'),hue:s.hue,
+      noMesh:s.noMesh, ikChain:s.ikChain, spline:s.spline, poleDir:[-s.poleDir[0],s.poleDir[1],s.poleDir[2]]});
+    const np=rig.parts.get(nid);
+    if(isRoot) np.rest.copy(Q); else np.rest.set(s.rest.x,-s.rest.y,-s.rest.z,s.rest.w);
+    map.set(i,nid);
+  }
+  selPart=map.get(srcId); selFace=-1; done('สะท้อนข้าม '+mo.name+' แล้ว');
+}
+// สะท้อนด่วน: ใช้ชิ้นราก (เช่น ลำตัว) เป็นกระจกให้อัตโนมัติ — ถ้ามีฝั่งตรงข้ามอยู่แล้ว กดซ้ำเพื่อแทนที่
+let mirrorConfirm=null;
+function doQuickMirror(){
+  const p=rig.parts.get(selPart), root=rigRoot();
+  if(!p||!root){ say('แตะเลือกกล่องก่อน'); return; }
+  if(p.id===root.id){ say('ชิ้นหลักสะท้อนไม่ได้ — เลือกแขน ขา หรือชิ้นที่อยู่ด้านข้าง'); return; }
+  // ชิ้นที่อยู่กลางตัวพอดี สะท้อนแล้วจะทับตัวเอง
+  const W=restWorlds(), Wm=W.get(root.id);
+  const C=new THREE.Vector3(...rig.offsetOf(root)).applyMatrix4(Wm);
+  const n=new THREE.Vector3(1,0,0).transformDirection(Wm).normalize();
+  const pc=new THREE.Vector3(...rig.offsetOf(p)).applyMatrix4(W.get(p.id));
+  if(Math.abs(n.dot(pc.clone().sub(C)))<.01){ say('ชิ้นนี้อยู่กลางตัวพอดี สะท้อนแล้วจะทับกันเอง'); return; }
+  const twinName=swapLR(p.name);
+  const twin=twinName!==p.name?[...rig.parts.values()].find(q=>q.name===twinName&&q.parent===p.parent):null;
+  if(twin){
+    if(mirrorConfirm!==p.id){ mirrorConfirm=p.id; setTimeout(()=>{ mirrorConfirm=null; },3000);
+      say('มี "'+twinName+'" อยู่แล้ว — กด ⇄ อีกครั้งเพื่อแทนที่ด้วยการสะท้อนใหม่'); return; }
+    mirrorConfirm=null; commit();
+    const doomed=new Set(rig.subtree(twin.id));
+    rig.remove(twin.id);
+    doMirror(p.id,root.id,true); return;
+  }
+  doMirror(p.id,root.id);
+}
+// ทำซ้ำชิ้นที่เลือก (พร้อมชิ้นลูก) ต่อกับชิ้นแม่เดิม เลื่อนออกไปข้างๆ ให้เห็นว่ามีชิ้นใหม่
+function doDuplicate(){
+  const p=rig.parts.get(selPart); if(!p){ say('แตะเลือกกล่องก่อน'); return; }
+  if(p.parent==null){ say('ชิ้นหลักทำซ้ำไม่ได้'); return; }
+  commit();
+  const da=axisOf(p.dir), oa=da===0?2:0;   // เลื่อนตามแกนที่ไม่ใช่แกนต่อ
+  const ids=rig.subtree(p.id), map=new Map();
+  for(const i of ids){
+    const s=rig.parts.get(i), isRoot=(i===p.id);
+    const shift=[...s.shift]; if(isRoot) shift[oa]+=s.size[oa]+.05;
+    const nid=rig.add({parent:isRoot?s.parent:map.get(s.parent), attachFace:s.attachFace,
+      dir:s.dir, size:s.size, shift, boxOff:s.boxOff, name:isRoot?s.name+' สำเนา':s.name, hue:s.hue,
+      rest:s.rest, noMesh:s.noMesh, ikChain:s.ikChain, spline:s.spline, poleDir:s.poleDir});
+    map.set(i,nid);
+  }
+  selPart=map.get(p.id); selFace=-1; done('ทำซ้ำแล้ว — ลากลูกศรเพื่อย้าย');
+}
+function doDelete(){
+  const p=rig.parts.get(selPart); if(!p) return;
+  if(p.parent==null&&rig.parts.size>1){ say('ลบชิ้นแรกไม่ได้'); return; }
+  commit();
+  const doomed=new Set(rig.subtree(selPart));
+  if(pendingEdge&&doomed.has(pendingEdge.partId)){ pendingEdge=null; updateEdgeHi(); }
+  const nm=p.name;
+  rig.remove(selPart); selPart=p.parent; selFace=-1; closeSheet(); closeHud();
+  done('ลบ '+nm+' แล้ว (↺ ย้อนได้)');
+}
+function mirrorPicked(pid){
+  const src=mirrorWait; mirrorWait=null;
+  if(pid==null){ say('ยกเลิกการสะท้อน'); refreshAll(); return; }
+  if(rig.subtree(src).includes(pid)){ say('ชิ้นกระจกต้องไม่ใช่ชิ้นที่จะสะท้อนหรือชิ้นลูกของมัน'); refreshAll(); return; }
+  doMirror(src,pid);
+}
+function doReparent(child,np){
+  if(rig.parts.get(np)?.spline){ say('หาง Spline เป็นชิ้นแม่ไม่ได้'); refreshAll(); return; }
+  commit();
+  const {W}=rig.worlds();
+  const local=W.get(np).clone().invert().multiply(W.get(child));
+  const pos=new THREE.Vector3().setFromMatrixPosition(local);
+  const par=rig.parts.get(np);
+  let bf=0,bd=1e9;
+  for(let i=0;i<6;i++){ const c=rig.faceCenter(par,i);
+    const d=Math.hypot(pos.x-c[0],pos.y-c[1],pos.z-c[2]); if(d<bd){bd=d;bf=i;} }
+  const c=rig.faceCenter(par,bf),ch=rig.parts.get(child);
+  ch.parent=np; ch.attachFace=bf; ch.shift=[pos.x-c[0],pos.y-c[1],pos.z-c[2]];
+  ch.rest.copy(new THREE.Quaternion().setFromRotationMatrix(local).multiply(ch.rot.clone().invert()));
+  selPart=child; selFace=-1; done('ย้ายไปต่อกับ '+par.name);
+}
+function nudgeSize(a,s){ const p=rig.parts.get(selPart); if(!p)return;
+  p.size[a]=Math.max(.05,Math.min(3,p.size[a]+s*STEP)); done(''); }
+function nudgeBox(a,s){ const p=rig.parts.get(selPart); if(!p)return;
+  p.boxOff[a]+=s*STEP; done(''); }
+function nudgePivot(a,s){ const p=rig.parts.get(selPart); if(!p)return;
+  p.shift[a]+=s*STEP; done(''); }
+function nudgeRot(a,s){
+  const p=rig.parts.get(selPart); if(!p)return;
+  const q=new THREE.Quaternion().setFromAxisAngle(AX[a],s*rotStep*Math.PI/180);
+  if(mode==='pose'){
+    p.rot.multiply(q);
+    if(p.ikChain) ikSolve(p);
+    if(p.pinned) pinUpdate(p);
+    solvePins(p.id);
+    if(autoKey) setKey(Math.round(frame));
+  }
+  else p.rest.multiply(q);
+  done('');
+}
+function nudgeMove(a,s){
+  const p=rig.parts.get(selPart); if(!p)return;
+  p.off.setComponent(a,p.off.getComponent(a)+s*STEP);
+  if(p.ikChain) ikSolve(p);
+  if(p.pinned) pinUpdate(p);
+  if(mode==='pose') solvePins(p.id);
+  if(autoKey&&mode==='pose') setKey(Math.round(frame));
+  done('');
+}
+
+/* ═════ IK (CCD, ง่ายๆ) ═════
+   ชิ้นควบคุม (control) ขยับ/หมุนได้อิสระเต็มที่ด้วยแท็บ "หมุน"/"เลื่อน" ตามปกติ —
+   ไม่ถูก IK แตะต้องเลย ส่วนข้อต่อ "แม่" (บรรพบุรุษ) เท่านั้นที่จะบิดไล่ตามให้เอง */
+function rigRoot(){ for(const p of rig.parts.values()) if(p.parent==null) return p; return null; }
+function ikAncestors(control,len){
+  // ไม่รวมชิ้นราก (ไม่มีแม่) เข้าสาย IK — ชิ้นรากคือตัวควบคุมหลักของอนิเมเตอร์ ไม่ควรถูกหมุนอัตโนมัติ
+  const out=[]; let cur=(control.parent!=null&&rig.parts.has(control.parent))?rig.parts.get(control.parent):null;
+  for(let i=0;i<len&&cur;i++){
+    if(cur.parent==null||!rig.parts.has(cur.parent)) break;
+    out.push(cur); cur=rig.parts.get(cur.parent);
+  }
+  return out;
+}
+function applyJointAim(joint,fromDir,toDir){
+  const delta=new THREE.Quaternion().setFromUnitVectors(fromDir,toDir);
+  const {Q}=rig.worlds();
+  const parentQ=(joint.parent!=null&&Q.has(joint.parent))?Q.get(joint.parent):new THREE.Quaternion();
+  const newWorldQ=delta.clone().multiply(Q.get(joint.id));
+  const newLocalQ=parentQ.clone().invert().multiply(newWorldQ);
+  joint.rot.copy(joint.rest.clone().invert().multiply(newLocalQ)).normalize();
+}
+function effectorWorldPos(effector,W){
+  const pv=rig.pivotOf(effector);
+  return new THREE.Vector3(pv[0],pv[1],pv[2]).applyMatrix4(W.get(effector.parent));
+}
+// สองข้อ (ต้นแขน+แขน, ต้นขา+ขา ฯลฯ) แก้แบบวิเคราะห์ตรงๆ (กฎโคไซน์) แทน CCD —
+// เพราะ CCD ล้วนๆ แก้ปัญหา "แขน/ขาตรงเป๊ะแล้วเป้าหมายอยู่แนวเดียวกัน" (เช่นย่อขาตรงๆ) ไม่ได้เลย
+// (บอกทิศที่จะงอไม่ได้ เพราะทิศที่มีอยู่ก็ชี้ถูกทางอยู่แล้ว แค่ระยะไม่พอ)
+function solveTwoBone(chain,effector,target){
+  const mid=chain[0],root=chain[1];
+  const {W}=rig.worlds();
+  const J0=new THREE.Vector3().setFromMatrixPosition(W.get(root.id));
+  const J1=new THREE.Vector3().setFromMatrixPosition(W.get(mid.id));
+  const J2=effectorWorldPos(effector,W);
+  const L1=J0.distanceTo(J1),L2=J1.distanceTo(J2);
+  if(L1<1e-6||L2<1e-6) return;
+  let D=target.distanceTo(J0);
+  const maxD=L1+L2-1e-4,minD=Math.max(Math.abs(L1-L2),1e-4)+1e-4;
+  D=Math.max(minD,Math.min(maxD,D));
+  const dirToTarget=target.clone().sub(J0).normalize();
+  const toJ1=J1.clone().sub(J0).normalize();
+  // ระนาบงอมาจาก "ทิศพับ" (pole vector) ที่ตั้งไว้ต่อชิ้นควบคุม ไม่ใช่เดาจากท่าปัจจุบัน —
+  // ทำให้กำหนดทิศศอก/เข่าให้งอไปทางที่ต้องการได้แน่นอน ไม่สุ่มพลิกเวลาขา/แขนตรงพอดี
+  const rp=rigRoot();
+  const rootQuat=rp?new THREE.Quaternion().setFromRotationMatrix(W.get(rp.id)):new THREE.Quaternion();
+  const pd=effector.poleDir||[0,0,1];
+  const poleWorld=new THREE.Vector3(pd[0],pd[1],pd[2]).applyQuaternion(rootQuat);
+  let n=new THREE.Vector3().crossVectors(dirToTarget,poleWorld);
+  if(n.lengthSq()<1e-8){
+    n=new THREE.Vector3().crossVectors(toJ1,new THREE.Vector3(0,0,1));
+    if(n.lengthSq()<1e-8) n=new THREE.Vector3().crossVectors(toJ1,new THREE.Vector3(1,0,0));
+  }
+  n.normalize();
+  const cosBeta=THREE.MathUtils.clamp((L1*L1+D*D-L2*L2)/(2*L1*D),-1,1);
+  const beta=Math.acos(cosBeta);
+  const newJ1Dir=dirToTarget.clone().applyAxisAngle(n,beta);
+  applyJointAim(root,toJ1,newJ1Dir);
+  const {W:W2}=rig.worlds();
+  const newJ1=new THREE.Vector3().setFromMatrixPosition(W2.get(mid.id));
+  const curJ2=effectorWorldPos(effector,W2);
+  const toJ2=curJ2.clone().sub(newJ1).normalize();
+  const toTargetFromJ1=target.clone().sub(newJ1).normalize();
+  applyJointAim(mid,toJ2,toTargetFromJ1);
+}
+function solveChainTo(effector,chainLen,target){
+  if(!effector||!chainLen||effector.parent==null||!rig.parts.has(effector.parent)) return;
+  const chain=ikAncestors(effector,chainLen);
+  if(!chain.length) return;
+  if(chain.length===2){ solveTwoBone(chain,effector,target); return; }
+  const jp=new THREE.Vector3(),tE=new THREE.Vector3(),tT=new THREE.Vector3();
+  for(let iter=0;iter<8;iter++){
+    for(const joint of chain){
+      const {W,Q}=rig.worlds();
+      const eff=effectorWorldPos(effector,W);
+      jp.setFromMatrixPosition(W.get(joint.id));
+      tE.copy(eff).sub(jp); tT.copy(target).sub(jp);
+      if(tE.lengthSq()<1e-8||tT.lengthSq()<1e-8) continue;
+      tE.normalize(); tT.normalize();
+      const delta=new THREE.Quaternion().setFromUnitVectors(tE,tT);
+      const parentQ=(joint.parent!=null&&Q.has(joint.parent))?Q.get(joint.parent):new THREE.Quaternion();
+      const newWorldQ=delta.clone().multiply(Q.get(joint.id));
+      const newLocalQ=parentQ.clone().invert().multiply(newWorldQ);
+      joint.rot.copy(joint.rest.clone().invert().multiply(newLocalQ)).normalize();
+    }
+  }
+}
+function worldPosOf(p){ const {W}=rig.worlds(); return new THREE.Vector3().setFromMatrixPosition(W.get(p.id)); }
+function ikSolve(control){
+  if(!control||!control.ikChain) return;
+  solveChainTo(control,control.ikChain,worldPosOf(control));
+}
+function pinUpdate(p){
+  if(!p||!p.pinned) return;
+  const w=worldPosOf(p); p.pinPos=[w.x,w.y,w.z];
+}
+function solvePins(exceptId){
+  for(const p of rig.parts.values()){
+    if(p.id===exceptId||!p.pinned||!p.ikChain) continue;
+    solveChainTo(p,p.ikChain,new THREE.Vector3(p.pinPos[0],p.pinPos[1],p.pinPos[2]));
+  }
+}
+function ikSetChain(p,n){
+  n=Math.max(0,Math.min(20,n));
+  p.ikChain=n;
+  if(!n) p.pinned=false;
+  syncMore(); syncHud(); updateGizmo(); save(); say(n?'ตัวควบคุม IK: '+n+' ข้อ':'ปิด IK แล้ว');
+}
+function pinToggle(p){
+  if(!p.ikChain){ say('ตั้งจำนวนข้อต่อ IK ก่อนถึงจะปักหมุดได้'); return; }
+  p.pinned=!p.pinned;
+  if(p.pinned) pinUpdate(p);
+  syncMore(); updateGizmo(); save(); say(p.pinned?'ปักหมุดแล้ว — ข้อต่อแม่จะเลี้ยงตำแหน่งนี้ให้เอง':'ถอดหมุดแล้ว');
+}
+function snapEdges(quiet){
+  const p=rig.parts.get(selPart);
+  if(!p||p.parent==null||!rig.parts.has(p.parent)){ if(!quiet) say('ชิ้นรากไม่มีแม่ให้ดูด'); return false; }
+  if(Math.abs(p.rest.w)<.999){ if(!quiet) say('ชิ้นนี้เอียงอยู่ — ดูดขอบไม่แม่น'); return false; }
+  const par=rig.parts.get(p.parent);
+  const po=rig.offsetOf(par), ph=[par.size[0]/2,par.size[1]/2,par.size[2]/2];
+  const pivot=rig.pivotOf(p), co=rig.offsetOf(p);
+  const cc=[pivot[0]+co[0],pivot[1]+co[1],pivot[2]+co[2]];
+  const ch=[p.size[0]/2,p.size[1]/2,p.size[2]/2];
+  let moved=false;
+  for(let a=0;a<3;a++){
+    const cand=[po[a]-ph[a], po[a], po[a]+ph[a]];
+    const mine=[cc[a]-ch[a], cc[a], cc[a]+ch[a]];
+    let best=null, bd=SNAP_THR;
+    for(const m of mine) for(const c of cand){
+      const d=c-m;
+      if(Math.abs(d)<bd){ bd=Math.abs(d); best=d; }
+    }
+    if(best!==null&&Math.abs(best)>1e-6){ p.boxOff[a]+=best; moved=true; }
+  }
+  if(moved) done('ดูดชิดขอบแล้ว'); else if(!quiet) say('ไม่มีขอบใกล้พอให้ดูด');
+  return moved;
+}
+function centerOnParent(){
+  const p=rig.parts.get(selPart);
+  if(!p||p.parent==null){ say('ชิ้นรากไม่มีแม่'); return; }
+  commit();
+  const par=rig.parts.get(p.parent);
+  const po=rig.offsetOf(par), pivot=rig.pivotOf(p), co=rig.offsetOf(p);
+  const ax=axisOf(p.dir);
+  for(let a=0;a<3;a++){ if(a===ax) continue;
+    p.boxOff[a]+=po[a]-(pivot[a]+co[a]); }
+  done('จัดกึ่งกลางแล้ว');
+}
+
+/* ═════ HUD ═════ */
+const hud=$('hud');
+const HUD_TABS={
+  build:[['size','ขนาด'],['pos','ตำแหน่ง'],['piv','จุดหมุน'],['rot','เอียง']],
+  pose :[['rot','หมุน'],['move','เลื่อน']]
+};
+// จุด IK ใช้ "ลากตำแหน่ง" อย่างเดียว — ไม่มีแท็บหมุนให้กดแล้วสับสน (ข้อต่อที่ IK คุมจะหมุนตามเอง)
+function hudTabsNow(){
+  const p=rig.parts.get(selPart);
+  return (mode==='pose'&&p&&p.ikChain>0) ? HUD_TABS.pose.filter(([k])=>k!=='rot') : HUD_TABS[mode];
+}
+function drawHudTabs(){
+  const c=$('hTabs'); c.innerHTML='';
+  const tabs=hudTabsNow();
+  if(!tabs.some(([k])=>k===hudTab)) hudTab=tabs[0][0];
+  for(const [k,l] of tabs){
+    const b=document.createElement('button');
+    b.dataset.h=k; b.textContent=l;
+    if(k===hudTab) b.classList.add('on');
+    c.appendChild(b);
+  }
+  const m=document.createElement('button'); m.dataset.h='more'; m.textContent='⋯'; c.appendChild(m);
+  const x=document.createElement('button'); x.dataset.h='close'; x.textContent='✕'; c.appendChild(x);
+  hud.querySelectorAll('.hp').forEach(p=>p.classList.toggle('act',p.dataset.p===hudTab));
+  $('hStep').style.display=(hudTab==='rot')?'flex':'none';
+  $('hSnap').style.display=(mode==='build'&&(hudTab==='pos'||hudTab==='piv'||hudTab==='size'))?'flex':'none';
+}
+function syncHud(){
+  const p=rig.parts.get(selPart);
+  const ck=(mode==='pose'&&p)?ctrlKindOf(p):null;
+  $('selName').textContent = p ? p.name+(ck&&!/IK|FK/.test(p.name)?' · '+(ck==='root'?'ราก':ck==='fk'?'FK':ck==='ikj'?'ตาม IK':'IK'):'') : 'ยังไม่ได้เลือก';
+  const v=$('hVal');
+  if(!p){ v.textContent='แตะเลือกกล่องบนจอ'; return; }
+  // เปลี่ยนชิ้นที่เลือกระหว่างเปิดเครื่องมือ (เช่น FK → IK) — วาดแท็บใหม่ให้ตรงกับชนิดชิ้น
+  if(document.body.classList.contains('hud')){
+    const ks=hudTabsNow().map(([k])=>k).join(), shown=[...$('hTabs').querySelectorAll('button')]
+      .map(b=>b.dataset.h).filter(h=>h!=='more'&&h!=='close').join();
+    if(ks!==shown){ hudTab=hudTabsNow()[0][0]; drawHudTabs(); }   // ออกจากจุด IK → กลับไปแท็บหมุน
+    else if(!ks.split(',').includes(hudTab)) drawHudTabs();
+  }
+  const f=x=>x.toFixed(2);
+  if(hudTab==='size') v.textContent='ขนาด  '+p.size.map(f).join(' · ');
+  else if(hudTab==='pos') v.textContent='ตำแหน่งกล่อง  '+p.boxOff.map(f).join(' · ');
+  else if(hudTab==='piv') v.textContent='จุดหมุน  '+p.shift.map(f).join(' · ');
+  else if(hudTab==='move') v.textContent='เลื่อน  '+[p.off.x,p.off.y,p.off.z].map(f).join(' · ')+ikBadge(p)
+    +(mode==='pose'&&p.ikChain>0?'  · จุด IK ใช้ลากเลื่อน ข้อต่อจะพับตามเอง':'');
+  else {
+    const e=new THREE.Euler().setFromQuaternion(mode==='pose'?p.rot:p.rest,'XYZ');
+    const d=x=>Math.round(x*180/Math.PI);
+    v.textContent='องศา  '+d(e.x)+'° · '+d(e.y)+'° · '+d(e.z)+'°'+(mode==='pose'?ikBadge(p):'')
+      +(ck==='ikj'?'  · ⚠ ข้อนี้ IK คุมอยู่ หมุนเองได้ แต่จะถูกจัดใหม่เมื่อลากจุด IK':'');
+  }
+}
+function ikBadge(p){ return p.ikChain?'   ⚙IK '+p.ikChain+' ข้อ'+(p.pinned?' 📌':''):''; }
+function openHud(tab){
+  if(selPart==null){ say('แตะเลือกกล่องบนจอก่อน'); return; }
+  hudTab = tab || hudTabsNow()[0][0];
+  document.body.classList.add('hud'); drawHudTabs(); syncHud();
+}
+const closeHud=()=>document.body.classList.remove('hud');
+$('hTabs').addEventListener('click',e=>{
+  const h=e.target.dataset.h; if(!h) return;
+  if(h==='close'){ closeHud(); return; }
+  if(h==='more'){ openSheet('shMore'); return; }
+  hudTab=h; drawHudTabs(); syncHud();
+});
+$('hStep').addEventListener('click',e=>{
+  const s=e.target.dataset.st; if(!s) return;
+  rotStep=+s;
+  $('hStep').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.st===s));
+});
+$('hSnap').addEventListener('click',e=>{
+  const s=e.target.dataset.sn; if(!s) return;
+  if(s==='tog'){ edgeSnap=!edgeSnap;
+    e.target.textContent='ดูดขอบ: '+(edgeSnap?'เปิด':'ปิด');
+    e.target.classList.toggle('on',edgeSnap);
+    say(edgeSnap?'ปล่อยนิ้วแล้วจะจัดชิดขอบให้เอง':'ปิดการดูดขอบ'); return; }
+  if(s==='now'){ if(selPart!=null){ commit(); snapEdges(false); } return; }
+  if(s==='fine'){ STEP=(STEP===.05)?.01:.05;
+    e.target.textContent='ละเอียด '+STEP.toFixed(2);
+    e.target.classList.toggle('on',STEP===.01); return; }
+});
+let holdT=null,holdI=null,holdBtn=null;
+function fire(b){
+  if(!b||selPart==null) return;
+  const g=(d,f)=>{ const [a,s]=d.split(',').map(Number); f(a,s); };
+  if(b.dataset.n) g(b.dataset.n,nudgeRot);
+  else if(b.dataset.sz) g(b.dataset.sz,nudgeSize);
+  else if(b.dataset.bo) g(b.dataset.bo,nudgeBox);
+  else if(b.dataset.pv) g(b.dataset.pv,nudgePivot);
+  else if(b.dataset.mv) g(b.dataset.mv,nudgeMove);
+}
+hud.addEventListener('pointerdown',e=>{
+  const b=e.target.closest('button[data-n],button[data-sz],button[data-bo],button[data-pv],button[data-mv]');
+  if(!b) return;
+  e.preventDefault();
+  if(selPart==null){ say('แตะเลือกกล่องบนจอก่อน'); return; }
+  commit(); holdBtn=b; fire(b);
+  holdT=setTimeout(()=>{ holdI=setInterval(()=>fire(holdBtn),110); },330);
+});
+function stopHold(){
+  const was=holdBtn;
+  clearTimeout(holdT); clearInterval(holdI); holdT=holdI=null; holdBtn=null;
+  if(was&&edgeSnap&&mode==='build'&&(was.dataset.bo||was.dataset.pv||was.dataset.sz)) snapEdges(true);
+}
+addEventListener('pointerup',stopHold);
+addEventListener('pointercancel',stopHold);
+
+/* ═════ TIMELINE ═════ */
+const strip=$('strip'), head=$('head'), tlNum=$('tlNum');
+let stripSig='', scrub=false;
+function goTo(f){ f=Math.max(0,Math.min(clip.len,Math.round(f)));
+  frame=f; evalAt(frame); refreshAll(); }
+function togglePlay(){ playing=!playing;
+  if(playing&&!clip.keys.length){ playing=false; say('ยังไม่มีคีย์ — กด ◆ เพื่อบันทึกท่า'); }
+  syncHead(); }
+const stopPlay=()=>{ if(playing){ playing=false; syncHead(); } };
+function jumpKey(d){
+  if(!clip.keys.length){ say('ยังไม่มีคีย์'); return; }
+  const t=Math.round(frame), ts=clip.keys.map(k=>k.t);
+  const c=ts.filter(x=>d<0?x<t:x>t);
+  goTo(c.length?(d<0?Math.max(...c):Math.min(...c)):(d<0?Math.max(...ts):Math.min(...ts)));
+}
+function keyNow(){ commit(); setKey(Math.round(frame)); done('บันทึกคีย์ที่เฟรม '+Math.round(frame)); }
+function buildStrip(){
+  const sig=clip.len+'|'+strip.clientWidth+'|'+clip.keys.map(k=>k.t).join(',');
+  if(sig===stripSig) return; stripSig=sig;
+  strip.querySelectorAll('.kf,.tk').forEach(n=>n.remove());
+  const w=strip.clientWidth||1, st=clip.len?w/clip.len:w;
+  for(let i=0;i<=clip.len;i++){ const d=document.createElement('div');
+    d.className='tk'; d.style.left=(i*st)+'px'; if(i%5===0) d.style.height='8px'; strip.appendChild(d); }
+  for(const k of clip.keys){ const d=document.createElement('div');
+    d.className='kf'; d.style.left=(k.t*st)+'px'; strip.appendChild(d); }
+}
+function syncHead(){
+  if(mode!=='pose') return;
+  buildStrip();
+  const w=strip.clientWidth||1,f=Math.round(frame);
+  head.style.left=(clip.len?f*(w/clip.len):0)+'px';
+  tlNum.textContent=f+'/'+clip.len;
+  const pb=$('tl').querySelector('[data-t="play"]');
+  if(pb) pb.textContent=playing?'■':'▶';
+  syncHeadIK();
+}
+/* ═══ ไทม์ไลน์ย่อยของจุดควบคุมที่เลือก — กรองจากคีย์รวมเดิม ไม่ได้สร้างระบบแยกใหม่ ═══ */
+const stripIK=$('stripIK'), headIK=$('headIK');
+let stripIKSig='';
+function partKeyTimes(partId){
+  // เทียบ "ตำแหน่งโลกจริง" ของชิ้นนี้ในแต่ละคีย์ ไม่ใช่แค่ rot/off ของตัวมันเอง —
+  // เพราะตัวแก้ IK แบบวิเคราะห์ตรงๆ มักทำให้ off ของชิ้นควบคุมเองเหลือ ~0 (ข้อต่อแม่ขยับพาไปหมดแล้ว)
+  // เทียบแค่ rot/off เองจะไม่เห็นความเปลี่ยนแปลงเลยทั้งที่จริงๆ ขยับไปแล้ว
+  const part=rig.parts.get(partId); if(!part) return [];
+  const saved=poseSnap();
+  const pts=clip.keys.map(k=>{ applyPose(k.pose); return worldPosOf(part); });
+  applyPose(saved);
+  const out=[]; let prev=null;
+  for(let i=0;i<clip.keys.length;i++){
+    if(!prev||prev.distanceTo(pts[i])>1e-4) out.push(clip.keys[i].t);
+    prev=pts[i];
+  }
+  return out;
+}
+function buildStripIK(times){
+  const sig=clip.len+'|'+stripIK.clientWidth+'|'+times.join(',');
+  if(sig===stripIKSig) return; stripIKSig=sig;
+  stripIK.querySelectorAll('.kfik').forEach(n=>n.remove());
+  const w=stripIK.clientWidth||1, st=clip.len?w/clip.len:w;
+  for(const t of times){ const d=document.createElement('div');
+    d.className='kfik'; d.style.left=(t*st)+'px'; stripIK.appendChild(d); }
+}
+function syncHeadIK(){
+  const p=rig.parts.get(selPart);
+  const show=mode==='pose'&&!!p&&p.ikChain>0;
+  $('tlIK').style.display=show?'block':'none';
+  if(!show) return;
+  $('tlIKName').textContent=p.name;
+  buildStripIK(partKeyTimes(p.id));
+  const w=stripIK.clientWidth||1,f=Math.round(frame);
+  headIK.style.left=(clip.len?f*(w/clip.len):0)+'px';
+}
+const sfIK=e=>{ const r=stripIK.getBoundingClientRect();
+  return clip.len?Math.max(0,Math.min(r.width,e.clientX-r.left))/r.width*clip.len:0; };
+$('tlIKHead').addEventListener('click',e=>{
+  const t=e.target.dataset.tik; if(!t) return;
+  const p=rig.parts.get(selPart); if(!p) return;
+  const times=partKeyTimes(p.id);
+  if(!times.length){ say('ชิ้นนี้ยังไม่มีคีย์ของตัวเอง'); return; }
+  stopPlay();
+  const cur=Math.round(frame);
+  if(t==='pk'){ const c=times.filter(x=>x<cur); goTo(c.length?Math.max(...c):Math.max(...times)); }
+  if(t==='nk'){ const c=times.filter(x=>x>cur); goTo(c.length?Math.min(...c):Math.min(...times)); }
+});
+const sf=e=>{ const r=strip.getBoundingClientRect();
+  return clip.len?Math.max(0,Math.min(r.width,e.clientX-r.left))/r.width*clip.len:0; };
+/* ลากย้าย/แตะค้างลบคีย์บนไทม์ไลน์ — ใช้ร่วมกันทั้งไทม์ไลน์หลักและไทม์ไลน์ย่อยของคอนโทรล
+   (ไทม์ไลน์ย่อยแค่ "กรอง" ว่าคีย์ไหนของ clip.keys ทำให้ชิ้นนี้ขยับ แต่ลากอ้างอิงคีย์จริงชุดเดียวกัน) */
+function keyNearIn(stripEl,times,clientX){
+  const r=stripEl.getBoundingClientRect(), w=r.width||1, st=clip.len?w/clip.len:w;
+  const mx=clientX-r.left; let best=null,bestD=10;
+  for(const t of times){ const d=Math.abs(t*st-mx); if(d<bestD){ bestD=d; best=t; } }
+  return best;
+}
+function wireKeyStrip(stripEl,sfFn,getTimes){
+  let dragT=null, dragTime=null, dragMoved=false, downX=0, downY=0;
+  stripEl.addEventListener('pointerdown',e=>{
+    stripEl.setPointerCapture(e.pointerId);
+    const hit=keyNearIn(stripEl,getTimes(),e.clientX);
+    if(hit!=null){
+      dragTime=hit; dragMoved=false; downX=e.clientX; downY=e.clientY;
+      dragT=setTimeout(()=>{ if(dragTime!=null&&!dragMoved){
+        commit(); delKey(dragTime); dragTime=null; stripIKSig='';
+        done('ลบคีย์แล้ว (แตะค้าง)'); } },500);
+      stopPlay(); return;
+    }
+    scrub=true; stopPlay(); goTo(sfFn(e));
+  });
+  stripEl.addEventListener('pointermove',e=>{
+    if(dragTime!=null){
+      if(!dragMoved&&Math.hypot(e.clientX-downX,e.clientY-downY)>10){
+        dragMoved=true; clearTimeout(dragT); commit();
+      }
+      if(dragMoved){
+        const nt=Math.max(0,Math.min(clip.len,Math.round(sfFn(e))));
+        if(nt!==dragTime){
+          const k=clip.keys.find(kk=>kk.t===dragTime);
+          if(k){
+            clip.keys=clip.keys.filter(kk=>kk===k||kk.t!==nt);
+            k.t=nt; clip.keys.sort((a,b)=>a.t-b.t); stripSig=''; stripIKSig='';
+          }
+          dragTime=nt; goTo(nt);
+        }
+      }
+      return;
+    }
+    if(scrub) goTo(sfFn(e));
+  });
+  function end(){
+    if(dragTime!=null){ clearTimeout(dragT); if(!dragMoved) goTo(dragTime); else save(); }
+    dragTime=null; dragMoved=false; scrub=false;
+  }
+  stripEl.addEventListener('pointerup',end);
+  stripEl.addEventListener('pointercancel',end);
+}
+wireKeyStrip(strip,sf,()=>clip.keys.map(k=>k.t));
+wireKeyStrip(stripIK,sfIK,()=>{ const p=rig.parts.get(selPart); return p?partKeyTimes(p.id):[]; });
+$('tl').addEventListener('click',e=>{
+  const t=e.target.dataset.t; if(!t) return;
+  if(t==='pf'){ stopPlay(); goTo(Math.round(frame)-1); }
+  if(t==='nf'){ stopPlay(); goTo(Math.round(frame)+1); }
+  if(t==='pk'){ stopPlay(); jumpKey(-1); }
+  if(t==='nk'){ stopPlay(); jumpKey(1); }
+  if(t==='play') togglePlay();
+});
+
+/* ═════ TOOLBAR ═════ */
+// โหมดปั้น: แถบเปลี่ยนตามสถานะ — ยังไม่เลือก = เลือกชิ้น, เลือกแล้ว = เครื่องมือที่ใช้บ่อยกดครั้งเดียวจบ
+const TOOLS={
+  build:[['prev','◀','ก่อนหน้า'],['list','☰','รายการชิ้น'],['next','▶','ถัดไป']],
+  buildSel:[['ext','＋','ต่อ'],['dup','⧉','ทำซ้ำ'],['mir','⇄','สะท้อน'],
+            ['up','⬆','ชิ้นแม่'],['del','🗑','ลบ'],['hud','⚙','ปรับ']],
+  pose :[['hud','⚙ เครื่องมือ'],['walk','★ ขยับอัตโนมัติ'],['key','◆']]
+};
+let toolSig='';
+function drawTool(){
+  const key=mode==='build'?(selPart!=null&&rig.parts.has(selPart)?'buildSel':'build'):mode;
+  const sig=key;
+  if(sig===toolSig) return; toolSig=sig;
+  const t=$('tool'); t.innerHTML=''; t.classList.toggle('icons',key!=='pose');
+  for(const [a,ic,l] of TOOLS[key]){
+    const b=document.createElement('button'); b.dataset.a=a;
+    if(l){ b.innerHTML='<i>'+ic+'</i><span>'+l+'</span>'; b.title=l; } else b.textContent=ic;
+    t.appendChild(b);
+  }
+}
+$('tool').addEventListener('click',e=>{
+  const bt=e.target.closest('button'); const a=bt&&bt.dataset.a; if(!a) return;
+  if(a==='prev') selStep(-1);
+  if(a==='next') selStep(1);
+  if(a==='list') openSheet('shList');
+  if(a==='ext') doExtrude();
+  if(a==='dup') doDuplicate();
+  if(a==='mir') doQuickMirror();
+  if(a==='del') doDelete();
+  if(a==='up'){ const p=rig.parts.get(selPart);
+    if(p&&p.parent!=null){ selPart=p.parent; selFace=-1; refreshAll(); say(rig.parts.get(selPart).name); }
+    else say('ชิ้นนี้เป็นชิ้นหลักแล้ว'); }
+  if(a==='hud'){ document.body.classList.contains('hud')?closeHud():openHud(); }
+  if(a==='key') keyNow();
+  if(a==='walk'){ commit(); if(presetWalk()) done('สร้างวงจรเคลื่อนไหวแล้ว — กด ▶ ดูผล'); }
+});
+
+/* ═════ SHEET ═════ */
+function openSheet(id){
+  document.querySelectorAll('.sh').forEach(s=>s.classList.toggle('act',s.id===id));
+  document.body.classList.add('sheet'); syncHud(); syncMore();
+}
+const closeSheet=()=>document.body.classList.remove('sheet');
+$('shade').onclick=closeSheet;
+$('grab').onclick=closeSheet;
+$('bMenu').onclick=()=>{
+  if(document.body.classList.contains('sheet')&&$('shSet').classList.contains('act')) closeSheet();
+  else openSheet('shSet');
+};
+$('selName').onclick=()=>openSheet('shList');
+
+$('sheet').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  const a=b.dataset.a; if(!a) return;
+  const p=rig.parts.get(selPart);
+  switch(a){
+    case 'newproj': openStart(); break;
+    case 'pivreset': if(p){ commit(); p.shift=[0,0,0]; done('คืนจุดหมุน'); } break;
+    case 'posreset': if(p){ commit(); p.boxOff=[0,0,0]; done('คืนตำแหน่งกล่อง'); } break;
+    case 'center': centerOnParent(); break;
+    case 'mirror': if(p){ mirrorWait=selPart; closeSheet();
+      say('แตะชิ้นที่จะใช้เป็นกระจก (แกนกลาง เช่น ลำตัว) — แตะที่ว่างเพื่อยกเลิก'); } break;
+    case 'del': doDelete(); break;
+    case 'parent': if(p&&p.parent!=null){ selPart=p.parent; selFace=-1; closeSheet(); refreshAll(); } break;
+    case 'reparent': if(p){ reparentWait=selPart; closeSheet(); say('ตอนนี้แตะกล่องที่จะเป็นชิ้นแม่'); } break;
+    case 'copy': clipboard={};
+      for(const q of rig.parts.values()) clipboard[q.name]={r:q.rot.toArray(),o:q.off.toArray(),b:[...q.bend]};
+      say('คัดลอกท่าแล้ว'); break;
+    case 'paste': case 'pastem': {
+      if(!clipboard){ say('ยังไม่ได้คัดลอกท่า'); break; }
+      const mir=(a==='pastem'); commit();
+      for(const q of rig.parts.values()){
+        const s=clipboard[mir?swapLR(q.name):q.name]; if(!s) continue;
+        if(mir){ q.rot.set(s.r[0],-s.r[1],-s.r[2],s.r[3]); q.off.set(-s.o[0],s.o[1],s.o[2]);
+          if(s.b) q.bend=[s.b[0],-s.b[1],s.b[2]]; }
+        else{ q.rot.fromArray(s.r); q.off.fromArray(s.o); if(s.b) q.bend=[...s.b]; }
+      }
+      if(autoKey) setKey(Math.round(frame));
+      closeSheet(); done(mir?'วางท่าสลับซ้าย-ขวา':'วางท่าแล้ว'); break;
+    }
+    case 'addctrl': doAddControl(); break;
+    case 'pivvert': if(selPart==null){ say('เลือกชิ้นก่อน'); break; }
+      edgePickMode=true; edgePickFor='pivotv'; closeSheet(); say('แตะใกล้ๆ มุมกล่องที่จะใช้เป็นจุดหมุน'); break;
+    case 'pivedge': if(selPart==null){ say('เลือกชิ้นก่อน'); break; }
+      edgePickMode=true; edgePickFor='pivot'; closeSheet(); say('แตะใกล้ๆ เส้นขอบที่จะใช้เป็นแกนพับ'); break;
+    case 'ikinc': if(p) ikSetChain(p,(p.ikChain||0)+1); break;
+    case 'ikdec': if(p) ikSetChain(p,(p.ikChain||0)-1); break;
+    case 'pintog': if(p) pinToggle(p); break;
+    case 'polecycle': if(p){ const [x,,z]=p.poleDir; p.poleDir=[z,p.poleDir[1],-x];
+      if(p.ikChain) ikSolve(p); solvePins(p.id); done('เปลี่ยนทิศพับแล้ว'); } break;
+    case 'poleflip': if(p){ p.poleDir=p.poleDir.map(v=>-v);
+      if(p.ikChain) ikSolve(p); solvePins(p.id); done('สลับทิศพับแล้ว'); } break;
+    case 'resetpart': if(p){ commit(); p.rot.identity(); p.off.set(0,0,0); p.bend=[0,0,0];
+      if(autoKey&&mode==='pose') setKey(Math.round(frame)); done('คืนท่าชิ้นนี้'); } break;
+    case 'restall': commit();
+      for(const q of rig.parts.values()){ q.rot.identity(); q.off.set(0,0,0); q.bend=[0,0,0]; }
+      if(autoKey&&mode==='pose') setKey(Math.round(frame)); closeSheet(); done('คืนท่าทั้งตัว'); break;
+    case 'delkey': commit(); delKey(Math.round(frame)); closeSheet(); done('ลบคีย์'); break;
+    case 'walk': commit(); if(presetWalk()){ closeSheet(); setMode('pose'); done('กด ▶ ดูผล'); } break;
+    case 'autokey': autoKey=!autoKey; b.classList.toggle('on',autoKey);
+      say(autoKey?'บันทึกคีย์อัตโนมัติ: เปิด':'ปิดแล้ว — ต้องกด ◆ เอง'); break;
+    case 'speed': clip.div=+b.dataset.div; syncSpeed(); save(); break;
+    case 'spline': if(p) toggleSpline(p); break;
+    case 'bendreset': if(p&&p.spline){ commit(); p.bend=[0,0,0];
+      if(autoKey&&mode==='pose') setKey(Math.round(frame)); done('คืนหางตรงแล้ว'); } break;
+    case 'interp': clip.interp=b.dataset.mode; syncInterpBtns(); evalAt(frame); refreshAll(); save(); break;
+    case 'wire': toggleWire(); break;
+    case 'piv': togglePiv(); break;
+    case 'expglb': expGlb(); break;
+    case 'clear': localStorage.removeItem(KEY); say('ล้างแล้ว');
+      $('saveInfo').textContent='ล้างข้อมูลที่บันทึกแล้ว'; break;
+  }
+});
+$('sHue').oninput=()=>{ const p=rig.parts.get(selPart); if(!p)return;
+  p.hue=+$('sHue').value; refreshAll(); };
+$('sHue').onchange=()=>save();
+
+function drawList(){
+  const c=$('lst'); if(!c) return; c.innerHTML='';
+  for(const p of rig.order()){
+    let d=0,q=p.parent;
+    while(q!=null&&rig.parts.has(q)){ d++; q=rig.parts.get(q).parent; }
+    const b=document.createElement('button');
+    b.textContent='　'.repeat(d)+p.name;
+    if(p.id===selPart) b.classList.add('on');
+    b.onclick=()=>{ if(mirrorWait!=null){ closeSheet(); mirrorPicked(p.id); return; }
+      if(reparentWait!=null&&reparentWait!==p.id){
+        const ch=reparentWait; reparentWait=null;
+        if(!rig.subtree(ch).includes(p.id)) doReparent(ch,p.id); else say('เลือกไม่ถูกต้อง');
+        closeSheet(); return; }
+      selPart=p.id; selFace=-1; refreshAll(); closeSheet(); };
+    c.appendChild(b);
+  }
+}
+function syncMore(){
+  $('ikSection').style.display=(mode==='pose')?'':'none';
+  $('poseSection').style.display=(mode==='pose')?'':'none';
+  $('buildPartSection').style.display=(mode==='build')?'':'none';
+  syncSplineUI();
+  $('posePartSection').style.display=(mode==='pose')?'':'none';
+  const p=rig.parts.get(selPart), v=$('vIK'), pb=$('bPin'); if(!v) return;
+  v.textContent = p ? (p.ikChain?p.ikChain+' ข้อ':'ปิด') : '—';
+  if(pb){ pb.textContent='ปักหมุด: '+(p&&p.pinned?'เปิด':'ปิด'); pb.classList.toggle('on',!!(p&&p.pinned)); }
+}
+function syncInterpBtns(){
+  document.querySelectorAll('button[data-a="interp"]').forEach(bn=>
+    bn.classList.toggle('on',bn.dataset.mode===clip.interp));
+}
+function syncSplineUI(){
+  const p=rig.parts.get(selPart), sp=p&&p.spline;
+  $('splineBuild').style.display=(p&&!p.noMesh)?'':'none';
+  $('bSpline').textContent=sp?'แปลงกลับเป็นกล่อง':'แปลงเป็นหาง Spline';
+  $('bSpline').classList.toggle('on',!!sp);
+  $('splineOpts').style.display=sp?'':'none';
+  $('splinePose').style.display=(mode==='pose'&&sp)?'':'none';
+  if(!sp) return;
+  $('sSSeg').value=sp.segs; $('vSSeg').textContent=sp.segs;
+  $('sSTap').value=sp.taper; $('vSTap').textContent=sp.taper.toFixed(2);
+  $('sSJig').value=sp.jiggle; $('vSJig').textContent=sp.jiggle.toFixed(2);
+  [['sBP','vBP',0],['sBY','vBY',1],['sBC','vBC',2]].forEach(([s,v,i])=>{
+    $(s).value=p.bend[i]; $(v).textContent=Math.round(p.bend[i])+'°'; });
+}
+function toggleSpline(p){
+  if(p.spline){ commit(); p.spline=null; p.bend=[0,0,0]; done('แปลงกลับเป็นกล่องแล้ว'); return; }
+  if(p.parent==null){ say('ชิ้นรากแปลงเป็นหางไม่ได้'); return; }
+  if(rig.kids(p.id).length){ say('ชิ้นนี้มีชิ้นลูกต่ออยู่ — แปลงเป็นหางไม่ได้'); return; }
+  commit(); p.spline={segs:6,taper:.5,jiggle:.5}; p.bend=[0,0,0];
+  done('แปลงเป็นหาง Spline แล้ว — ไปโหมดท่าทางเพื่องอ/ม้วน');
+}
+let bendCommitted=false;
+function editBend(i,v){
+  const p=rig.parts.get(selPart); if(!p||!p.spline) return;
+  if(!bendCommitted){ commit(); bendCommitted=true; }
+  p.bend[i]=v; $(['vBP','vBY','vBC'][i]).textContent=Math.round(v)+'°';
+  if(autoKey&&mode==='pose') setKey(Math.round(frame));
+  syncHead();
+}
+function syncSpeed(){
+  $('vFps').textContent=(+clip.fps.toFixed(2))+' เฟรม/วินาที · '+clip.div.toFixed(1)+' วิ';
+  document.querySelectorAll('button[data-a="speed"]').forEach(bn=>bn.classList.toggle('on',+bn.dataset.div===clip.div));
+}
+function syncSet(){
+  $('sLen').max=Math.max(60,clip.len); $('sLen').value=clip.len; $('vLen').textContent=clip.len;
+  syncSpeed();
+  syncInterpBtns();
+  $('bAuto').classList.toggle('on',autoKey);
+}
+const sld=(s,v,fn,d)=>{ const e=$(s),dec=(d===undefined?2:d);
+  e.oninput=()=>{ $(v).textContent=(+e.value).toFixed(dec); fn(+e.value); }; };
+sld('sLoc','vLoc',x=>{ locSize=x; refreshAll(); });
+const splineSld=(id,vid,key,dec)=>{ const e=$(id);
+  e.oninput=()=>{ const p=rig.parts.get(selPart); if(!p||!p.spline) return;
+    p.spline[key]=+e.value; $(vid).textContent=(+e.value).toFixed(dec); refreshAll(); };
+  e.onchange=()=>{ commit(); save(); }; };
+splineSld('sSSeg','vSSeg','segs',0); splineSld('sSTap','vSTap','taper',2); splineSld('sSJig','vSJig','jiggle',2);
+[['sBP',0],['sBY',1],['sBC',2]].forEach(([id,i])=>{ const e=$(id);
+  e.oninput=()=>editBend(i,+e.value); e.onchange=()=>{ bendCommitted=false; save(); }; });
+sld('sLen','vLen',x=>{ clip.len=x; stripSig=''; syncSpeed(); if(frame>x) goTo(x); else syncHead(); save(); },0);
+
+function setMode(m){
+  mirrorWait=null;
+  mode=m; closeSheet(); closeHud();
+  if(m!=='build') selFace=-1;
+  document.body.classList.toggle('pose',m==='pose');
+  $('tB').classList.toggle('on',m==='build');
+  $('tP').classList.toggle('on',m==='pose');
+  if(m!=='pose') stopPlay();
+  hudTab=HUD_TABS[m][0][0]; stripSig='';
+  drawTool(); drawHudTabs(); refreshAll();
+  say(m==='build'?'แตะหน้ากล่อง แล้วกด ＋ ต่อ · ⚙ ปรับ = ขนาด/ตำแหน่ง/จุดหมุน'
+                 :'แตะชิ้น แล้วกด ⟳ หมุน (กดค้างได้)');
+}
+$('tB').onclick=()=>setMode('build');
+$('tP').onclick=()=>setMode('pose');
+
+/* ═════ เรียนรู้ 3D (บทเรียนสั้นๆ สำหรับมือใหม่/เด็ก: อ่าน → ลองในแอป → ตอบคำถามเก็บดาว) ═════ */
+const SV=b=>'<svg viewBox="0 0 320 150" font-family="sans-serif" font-size="12">'+b+'</svg>';
+const TX=(x,y,t,c,s,a)=>`<text x="${x}" y="${y}" fill="${c||'#dde2ec'}" font-size="${s||12}" text-anchor="${a||'middle'}" font-weight="700">${t}</text>`;
+const TRI=(x,y,ang,c)=>`<polygon points="0,-5 10,0 0,5" fill="${c}" transform="translate(${x},${y}) rotate(${ang})"/>`;
+const LESSONS=[
+ { id:'axes', ic:'🧭', title:'แกน X Y Z — โลก 3 มิติ',
+   body:`<p>รูปวาดบนกระดาษเป็น <b>2 มิติ</b> มีแค่ "กว้าง" กับ "สูง" · แต่โลก <b>3 มิติ</b> มี "ความลึก" เพิ่มเข้ามา เหมือนกล่องของจริงที่หยิบหมุนดูได้รอบด้าน</p>
+     <p>ทุกจุดในโลก 3D บอกตำแหน่งด้วยตัวเลข 3 ตัว:<br><span style="color:#e0503c">■ X</span> ซ้าย–ขวา · <span style="color:#5ec27a">■ Y</span> ขึ้น–ลง · <span style="color:#4fa0e6">■ Z</span> หน้า–หลัง</p>`,
+   svg:SV(`<line x1="110" y1="100" x2="205" y2="100" stroke="#e0503c" stroke-width="4"/>${TRI(205,100,0,'#e0503c')}${TX(225,104,'X','#e0503c',15)}
+     <line x1="110" y1="100" x2="110" y2="25" stroke="#5ec27a" stroke-width="4"/>${TRI(110,22,-90,'#5ec27a')}${TX(110,14,'Y','#5ec27a',15)}
+     <line x1="110" y1="100" x2="58" y2="135" stroke="#4fa0e6" stroke-width="4"/>${TRI(56,137,146,'#4fa0e6')}${TX(40,140,'Z','#4fa0e6',15)}
+     <circle cx="110" cy="100" r="5" fill="#ffe066"/>${TX(128,118,'จุด 0,0,0','#8791a5',10,'start')}
+     <polygon points="245,62 260,47 305,47 290,62" fill="#565e72"/><polygon points="290,62 305,47 305,92 290,107" fill="#3a4050"/>
+     <rect x="245" y="62" width="45" height="45" fill="#6f7891"/>${TX(268,125,'กว้าง·สูง·ลึก','#8791a5',10)}`),
+   ex:'💡 สีแกนในแอปนี้เหมือนกันทุกที่: แดง = X · เขียว = Y · น้ำเงิน = Z — ดูได้จากลูกบอลแกนมุมขวาบน และลูกศรลากของ gizmo',
+   tryTxt:'🎥 ลองหมุนกล้องดูรอบๆ',
+   tryFn(){ say('ลากนิ้วเดียว = หมุนกล้อง · สองนิ้ว = ซูม/เลื่อน · แตะลูกบอลขวาบน = หันไปทางแกนนั้น'); },
+   q:'ถ้าอยากให้กล่องลอยสูงขึ้น ต้องเลื่อนตามแกนไหน?', ch:['X (แดง)','Y (เขียว)','Z (น้ำเงิน)'], ok:1,
+   fb:'Y คือแกนขึ้น–ลง ลากลูกศรสีเขียวขึ้นได้เลย' },
+ { id:'box', ic:'📦', title:'ปั้นจากกล่อง (Low-poly)',
+   body:`<p>โมเดล 3D ทุกตัวสร้างจาก <b>หน้า</b> เล็กๆ มาต่อกัน (เรียกว่า polygon) · ในแอปนี้เราใช้ <b>กล่อง</b> ล้วนๆ เหมือนต่อตัวต่อ — หัวเป็นกล่อง ลำตัวเป็นกล่อง แขนขาก็เป็นกล่อง</p>
+     <p>เกมยุค PlayStation 1 ก็ใช้รูปทรงง่ายๆ แบบนี้ เพราะเครื่องสมัยนั้นวาดได้ไม่กี่ร้อยหน้า เราเรียกสไตล์นี้ว่า <b>Low-poly</b> (โพลีน้อย)</p>`,
+   svg:SV(`<rect x="146" y="12" width="28" height="28" fill="#d79a6a"/><rect x="138" y="44" width="44" height="50" fill="#5f8fd0"/>
+     <rect x="116" y="46" width="18" height="44" fill="#d79a6a"/><rect x="186" y="46" width="18" height="44" fill="#d79a6a"/>
+     <rect x="141" y="98" width="17" height="44" fill="#4a5470"/><rect x="162" y="98" width="17" height="44" fill="#4a5470"/>
+     ${TX(60,40,'กล่อง 1 ใบ','#8791a5',11)}${TX(60,60,'6 หน้า','#ffe066',13)}${TX(60,80,'8 มุม','#ffe066',13)}${TX(60,100,'12 ขอบ','#ffe066',13)}
+     ${TX(262,70,'หุ่นทั้งตัว','#8791a5',11)}${TX(262,90,'= 7 กล่อง','#ffe066',13)}`),
+   ex:'💡 ในโหมด "ปั้น": แตะหน้ากล่อง แล้วกด ＋ ต่อ เพื่องอกกล่องใหม่ออกจากหน้านั้น',
+   tryTxt:'🧱 ไปโหมดปั้น',
+   tryFn(){ setMode('build'); say('แตะหน้ากล่อง แล้วกด ＋ ต่อ เพื่องอกกล่องใหม่'); },
+   q:'กล่อง 1 ใบมีกี่หน้า?', ch:['6 หน้า','4 หน้า','8 หน้า'], ok:0,
+   fb:'บน ล่าง ซ้าย ขวา หน้า หลัง = 6 หน้า' },
+ { id:'pivot', ic:'📍', title:'จุดหมุน (Pivot)',
+   body:`<p>จุดหมุนคือ "จุดที่ชิ้นงานหมุนรอบ" เหมือน <b>บานพับประตู</b> — ประตูไม่ได้หมุนรอบตรงกลาง แต่หมุนรอบบานพับที่ขอบ</p>
+     <p>แขนก็เหมือนกัน จุดหมุนต้องอยู่ที่ <b>ไหล่</b> ถ้าไปอยู่กลางแขน แขนจะหมุนติ้วเหมือนใบพัด ดูแปลกมาก!</p>`,
+   svg:SV(`<g opacity=".35" transform="rotate(-45 70 30)"><rect x="62" y="30" width="16" height="78" fill="#d79a6a"/></g>
+     <rect x="62" y="30" width="16" height="78" fill="#d79a6a"/><circle cx="70" cy="30" r="6" fill="#ffe066"/>
+     <path d="M70,112 A82,82 0 0 0 128,88" fill="none" stroke="#5ec27a" stroke-width="2" stroke-dasharray="4 3"/>
+     ${TX(70,142,'หมุนที่ไหล่ ✓','#5ec27a',12)}
+     <g opacity=".35" transform="rotate(-45 240 69)"><rect x="232" y="30" width="16" height="78" fill="#d79a6a"/></g>
+     <rect x="232" y="30" width="16" height="78" fill="#d79a6a"/><circle cx="240" cy="69" r="6" fill="#ffe066"/>
+     ${TX(240,142,'หมุนกลางแขน ✗','#e0503c',12)}`),
+   ex:'💡 กากบาทเล็กๆ บนโมเดลคือจุดหมุน · ย้ายได้ที่ โหมดปั้น → ⚙ ปรับ → แท็บจุดหมุน',
+   tryTxt:'📍 ไปดูจุดหมุนในโหมดปั้น',
+   tryFn(){ setMode('build'); say('เลือกชิ้น แล้วกด ⚙ ปรับ → จุดหมุน เพื่อย้ายจุดหมุน'); },
+   q:'ถ้าอยากให้แขนหมุนเหมือนคนจริงๆ จุดหมุนควรอยู่ตรงไหน?', ch:['กลางแขน','ปลายนิ้ว','ที่ไหล่'], ok:2,
+   fb:'แขนเราหมุนจากไหล่ จุดหมุนจึงต้องอยู่ที่ไหล่' },
+ { id:'hier', ic:'👪', title:'แม่–ลูก (Hierarchy)',
+   body:`<p>ชิ้นส่วนต่อกันเป็นสายเหมือนครอบครัว: ลำตัว → ต้นแขน → แขน → มือ</p>
+     <p>เมื่อ <b>แม่</b> ขยับ <b>ลูกทุกตัว</b> จะขยับตาม แต่ถ้าลูกขยับ แม่จะไม่ตาม · ลองนึกถึงตัวเรา: หมุนไหล่ แขนกับมือหมุนตามไปด้วย แต่กระดิกนิ้ว ไหล่ไม่ขยับ</p>`,
+   svg:SV(['ลำตัว','ต้นแขน','แขน','มือ'].map((t,i)=>`<rect x="${8+i*78}" y="45" width="66" height="36" rx="6" fill="${['#5f8fd0','#d79a6a','#c98a5c','#b87a50'][i]}"/>${TX(41+i*78,68,t,'#15171d',12)}`
+       +(i<3?`<line x1="${74+i*78}" y1="63" x2="${84+i*78}" y2="63" stroke="#dde2ec" stroke-width="2"/>${TRI(84+i*78,63,0,'#dde2ec')}`:'')).join('')
+     +TX(41,32,'แม่','#ffe066',12)+TX(197,32,'ลูก ๆ','#ffe066',12)
+     +`<path d="M41,92 Q160,135 275,92" fill="none" stroke="#ffe066" stroke-width="2" stroke-dasharray="4 3"/>${TRI(275,92,-30,'#ffe066')}`
+     +TX(160,140,'แม่ขยับ → ลูกตามหมด','#8791a5',11)),
+   ex:'💡 เส้นบางๆ ที่โยงระหว่างจุดหมุนบนโมเดล คือสายแม่–ลูก · ปุ่ม ⬆ ในโหมดปั้นใช้กระโดดไปเลือกชิ้นแม่',
+   tryTxt:'🕺 ลองหมุนชิ้นแม่ในโหมดท่าทาง',
+   tryFn(){ setMode('pose'); say('แตะต้นแขนหรือต้นขา แล้วกด ⚙ → หมุน ดูชิ้นลูกหมุนตาม'); },
+   q:'ถ้าหมุน "ต้นแขน" ชิ้นไหนจะหมุนตาม?', ch:['ลำตัว','แขนและมือ','ไม่มีชิ้นไหนเลย'], ok:1,
+   fb:'แขนและมือเป็นลูกของต้นแขน จึงหมุนตาม ส่วนลำตัวเป็นแม่ จึงอยู่กับที่' },
+ { id:'ikfk', ic:'🦾', title:'FK กับ IK — สองวิธีจัดท่า',
+   body:`<p><b>FK (Forward Kinematics)</b> — หมุนจาก <b>โคนไปปลาย</b>: หมุนไหล่ แล้วหมุนศอก แล้วหมุนข้อมือ ทีละข้อ เหมือนจัดท่าตุ๊กตา ควบคุมได้ละเอียด เหมาะกับ <b>ท่าแกว่งแขน โบกมือ</b></p>
+     <p><b>IK (Inverse Kinematics)</b> — จับที่ <b>ปลาย</b> แล้วลาก: ลาก "มือ" ไปไหนก็ได้ ศอกกับไหล่จะคิดการพับให้เอง เหมาะกับ <b>เท้าที่ต้องเหยียบพื้น</b> หรือ <b>มือที่ต้องจับของ</b></p>`,
+   svg:SV(`${TX(80,18,'FK — หมุนทีละข้อ','#ff9a3c',12)}
+     <polyline points="25,45 80,90 125,55" fill="none" stroke="#d79a6a" stroke-width="9" stroke-linejoin="round"/>
+     ${[[25,45],[80,90],[125,55]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="7" fill="#15171d" stroke="#ff9a3c" stroke-width="3"/><path d="M${x-13},${y-6} A14,14 0 0 1 ${x+6},${y-13}" fill="none" stroke="#ff9a3c" stroke-width="2"/>${TRI(x+6,y-13,20,'#ff9a3c')}`).join('')}
+     ${TX(80,130,'① ไหล่ → ② ศอก → ③ มือ','#8791a5',10)}
+     <line x1="160" y1="20" x2="160" y2="140" stroke="#2f3644"/>
+     ${TX(240,18,'IK — ลากปลาย','#49d0e0',12)}
+     <polyline points="190,45 228,98 278,62" fill="none" stroke="#d79a6a" stroke-width="9" stroke-linejoin="round"/>
+     <circle cx="190" cy="45" r="6" fill="#b07cff"/><circle cx="228" cy="98" r="6" fill="#b07cff"/>
+     <rect x="270" y="54" width="16" height="16" fill="#49d0e0" transform="rotate(45 278 62)"/>
+     <path d="M285,55 L302,34" stroke="#49d0e0" stroke-width="2" stroke-dasharray="4 3"/>${TRI(303,33,-51,'#49d0e0')}
+     ${TX(240,130,'ลากมือ ✋ ศอก-ไหล่พับเอง','#8791a5',10)}`),
+   ex:`จุดควบคุมในโหมดท่าทาง:<br><i class="mk fk"></i> FK — แตะแล้วหมุนทีละข้อ &nbsp; <i class="mk ik"></i> IK — ลาก gizmo ได้เลย<br>
+     <i class="mk ikj"></i> ข้อที่ IK หมุนให้อัตโนมัติ &nbsp; <i class="mk root"></i> ราก — ย้ายทั้งตัว`,
+   tryTxt:'✋ ลองลากจุด IK',
+   tryFn(){ setMode('pose');
+     const c=[...rig.parts.values()].find(p=>p.ikChain>0);
+     if(!c){ say('โมเดลนี้ยังไม่มีจุด IK — ลองเริ่มจากแบบ "หุ่นคน" ในเมนู ☰'); return; }
+     selPart=c.id; selFace=-1; refreshAll(); say(c.name+' เป็นจุด IK — ลากลูกศรหรือจุดเหลืองตรงกลางดูสิ'); },
+   q:'อยากให้เท้าติดพื้นตลอดตอนตัวละครย่อตัวลง ใช้แบบไหนง่ายกว่า?', ch:['FK — หมุนสะโพก เข่า ข้อเท้าทีละข้อ','IK — ปักเท้าไว้ แล้วให้เข่าพับเอง'], ok:1,
+   fb:'IK เก่งเรื่อง "ปลายต้องอยู่ตรงนี้" ส่วน FK เก่งเรื่องท่าแกว่งไปมาอย่างอิสระ' },
+ { id:'keys', ic:'🎞', title:'คีย์เฟรมและไทม์ไลน์',
+   body:`<p>แอนิเมชันคือภาพนิ่งหลายๆ ภาพเปิดเร็วๆ เหมือน <b>สมุดภาพพลิก</b> แต่ละภาพเรียกว่า <b>เฟรม</b> — ปกติใช้ 24 เฟรมต่อ 1 วินาที เหมือนหนังโรง</p>
+     <p>เราไม่ต้องจัดท่าทุกเฟรม! แค่ตั้ง <b>ท่าสำคัญ</b> แล้วกด ◆ เก็บเป็น <b>คีย์เฟรม</b> คอมพิวเตอร์จะเติมท่าระหว่างกลางให้เอง (เรียกว่า in-between)</p>`,
+   svg:SV(`<rect x="20" y="112" width="280" height="16" rx="5" fill="#101319" stroke="#2f3644"/>
+     ${[40,160,280].map(x=>`<rect x="${x-6}" y="114" width="12" height="12" fill="#e0703a" transform="rotate(45 ${x} 120)"/>`).join('')}
+     ${[[40,70,1],[100,45,.3],[160,30,1],[220,45,.3],[280,70,1]].map(([x,y,o])=>`<g opacity="${o}"><circle cx="${x}" cy="${y}" r="9" fill="#d79a6a"/><rect x="${x-8}" y="${y+11}" width="16" height="22" fill="#5f8fd0"/></g>`).join('')}
+     ${TX(40,146,'คีย์ ◆','#e0703a',10)}${TX(160,146,'คีย์ ◆','#e0703a',10)}${TX(280,146,'คีย์ ◆','#e0703a',10)}
+     ${TX(100,100,'เติมให้','#8791a5',9)}${TX(220,100,'เติมให้','#8791a5',9)}`),
+   ex:'💡 แถบด้านล่างในโหมดท่าทางคือไทม์ไลน์ · เพชรสีส้ม ◆ คือคีย์เฟรม · กด ▶ เพื่อเล่นดูผลงาน',
+   tryTxt:'◆ ไปลองตั้งคีย์เฟรม',
+   tryFn(){ setMode('pose'); say('ตั้งท่า → กด ◆ · เลื่อนไปเฟรมอื่น ตั้งท่าใหม่ → กด ◆ · แล้วกด ▶'); },
+   q:'แอนิเมชันยาว 48 เฟรม ที่ 24 เฟรมต่อวินาที จะยาวกี่วินาที?', ch:['2 วินาที','1 วินาที','24 วินาที'], ok:0,
+   fb:'48 ÷ 24 = 2 วินาที' },
+ { id:'tips', ic:'✨', title:'เคล็ดลับทำให้ท่าทางมีชีวิต',
+   body:`<p><b>เตรียมตัว (Anticipation)</b> — ก่อนกระโดดให้ย่อตัวลงก่อน ก่อนขว้างให้เหวี่ยงแขนไปข้างหลังก่อน</p>
+     <p><b>ยืด–หด (Squash &amp; Stretch)</b> — ลูกบอลกระแทกพื้นจะแบน ตอนพุ่งจะยืด ดูนุ่มและมีน้ำหนัก</p>
+     <p><b>จังหวะ (Timing)</b> — ใช้เฟรมน้อย = เร็ว ดูเบา · ใช้เฟรมเยอะ = ช้า ดูหนัก</p>
+     <p><b>เส้นโค้ง (Arcs)</b> — สิ่งมีชีวิตขยับเป็นเส้นโค้ง ไม่ใช่เส้นตรงแข็งๆ เหมือนหุ่นยนต์</p>`,
+   svg:SV(`<line x1="10" y1="135" x2="310" y2="135" stroke="#2f3644" stroke-width="2"/>
+     <path d="M30,30 Q95,-20 160,123 Q230,20 295,123" fill="none" stroke="#8791a5" stroke-dasharray="4 4"/>
+     <circle cx="30" cy="30" r="12" fill="#e0703a"/><ellipse cx="128" cy="70" rx="9" ry="16" fill="#e0703a" transform="rotate(-25 128 70)"/>
+     <ellipse cx="160" cy="127" rx="19" ry="8" fill="#e0703a"/><ellipse cx="192" cy="72" rx="9" ry="15" fill="#e0703a" transform="rotate(25 192 72)"/>
+     <circle cx="228" cy="45" r="12" fill="#e0703a"/>
+     ${TX(110,40,'ยืด','#ffe066',11)}${TX(160,112,'หด','#ffe066',11)}${TX(228,25,'กลม','#ffe066',11)}`),
+   ex:'💡 เมนู ☰ → "รูปแบบไล่เฟรม" เปลี่ยนความรู้สึกการเคลื่อนไหวได้ เช่น นุ่ม · สปริง · ปิงปอง · กระตุก',
+   tryTxt:'✨ ไปลองเปลี่ยนรูปแบบไล่เฟรม',
+   tryFn(){ setMode('pose'); openSheet('shSet'); say('เลือกรูปแบบไล่เฟรม แล้วกด ▶ ดูว่าการเคลื่อนไหวเปลี่ยนไปยังไง'); },
+   q:'ก่อนกระโดด ตัวละครควรทำอะไรให้ดูเป็นธรรมชาติ?', ch:['กระโดดขึ้นทันที','ยืนนิ่งๆ','ย่อตัวลงก่อน'], ok:2,
+   fb:'การย่อตัวก่อน (Anticipation) ทำให้คนดูรู้ว่ากำลังจะเกิดอะไร และดูมีแรงส่ง' },
+ { id:'cam', ic:'🎥', title:'กล้อง Perspective กับ Ortho',
+   body:`<p><b>Perspective</b> — ของใกล้ดูใหญ่ ของไกลดูเล็ก เหมือนตาเราจริงๆ รางรถไฟดูเหมือนบรรจบกันที่ไกลๆ</p>
+     <p><b>Orthographic</b> — ของทุกชิ้นขนาดเท่าเดิมไม่ว่าใกล้หรือไกล เหมือนแบบแปลนบ้าน เหมาะกับการจัดให้ตรงเป๊ะ</p>`,
+   svg:SV(`<line x1="20" y1="135" x2="72" y2="25" stroke="#8791a5" stroke-width="3"/><line x1="140" y1="135" x2="88" y2="25" stroke="#8791a5" stroke-width="3"/>
+     ${[[135,1],[95,.72],[65,.5],[44,.35]].map(([y,s])=>`<line x1="${80-62*s}" y1="${y-6}" x2="${80+62*s}" y2="${y-6}" stroke="#c98a5c" stroke-width="${4*s+1}"/>`).join('')}
+     ${TX(80,16,'Perspective','#ffe066',12)}
+     <line x1="190" y1="135" x2="190" y2="25" stroke="#8791a5" stroke-width="3"/><line x1="290" y1="135" x2="290" y2="25" stroke="#8791a5" stroke-width="3"/>
+     ${[129,99,69,39].map(y=>`<line x1="182" y1="${y}" x2="298" y2="${y}" stroke="#c98a5c" stroke-width="4"/>`).join('')}
+     ${TX(240,16,'Ortho','#ffe066',12)}`),
+   ex:'💡 ปุ่ม Persp / Ortho อยู่ใต้ลูกบอลแกนมุมขวาบน (หรือกด Numpad 5)',
+   tryTxt:'🔁 สลับมุมกล้องดู',
+   tryFn(){ setOrtho(!isOrtho); say('ตอนนี้เป็น '+(isOrtho?'Orthographic':'Perspective')+' — กดปุ่มขวาบนเพื่อสลับกลับ'); },
+   q:'อยากจัดสองกล่องให้สูงเท่ากันเป๊ะ ควรใช้กล้องแบบไหน?', ch:['Orthographic','Perspective'], ok:0,
+   fb:'Ortho ไม่ย่อขนาดตามระยะ เลยเทียบความสูงได้ตรงๆ' },
+];
+let learnDone=new Set();
+try{ learnDone=new Set(JSON.parse(localStorage.getItem('boxbeat.learn')||'[]')); }catch(e){}
+function saveLearn(){ try{ localStorage.setItem('boxbeat.learn',JSON.stringify([...learnDone])); }catch(e){} }
+function syncLearnProg(){
+  const n=LESSONS.filter(l=>learnDone.has(l.id)).length;
+  $('lProgBar').style.width=(n/LESSONS.length*100)+'%';
+  $('lProgTxt').textContent=n===LESSONS.length?'🏆 เก่งมาก! เก็บดาวครบ '+n+' ดวงแล้ว':'เก็บดาวแล้ว '+n+' / '+LESSONS.length+' ⭐';
+  $('lNav').querySelectorAll('button').forEach(b=>b.classList.toggle('done',learnDone.has(b.dataset.l)));
+}
+function buildLearn(){
+  $('lNav').innerHTML=LESSONS.map((l,i)=>`<button data-l="${l.id}">${l.ic} ${i+1}</button>`).join('');
+  $('lList').innerHTML=LESSONS.map((l,i)=>`<div class="les" id="les-${l.id}">
+    <h2><span class="no">${i+1}</span>${l.ic} ${l.title}</h2>${l.body}${l.svg}
+    <div class="ex">${l.ex}</div><button class="try" data-try="${l.id}">${l.tryTxt}</button>
+    <div class="quiz" data-q="${l.id}"><div class="q">❓ ${l.q}</div>
+      <div class="ch">${l.ch.map((c,j)=>`<button data-c="${j}">${c}</button>`).join('')}</div><div class="fb"></div></div></div>`).join('');
+  syncLearnProg();
+}
+function openLearn(id){
+  if(!$('lList').children.length) buildLearn();
+  closeSheet(); closeHud(); stopPlay();
+  document.body.classList.add('learn');
+  if(id){ const s=$('les-'+id); if(s) s.scrollIntoView({block:'start'}); $('learn').scrollTop-=60; }
+}
+const closeLearn=()=>document.body.classList.remove('learn');
+$('tL').onclick=()=>openLearn();
+$('bLearnClose').onclick=closeLearn;
+$('lNav').onclick=e=>{ const b=e.target.closest('button[data-l]'); if(b) openLearn(b.dataset.l); };
+$('lList').onclick=e=>{
+  const t=e.target.closest('button[data-try]');
+  if(t){ const l=LESSONS.find(x=>x.id===t.dataset.try); closeLearn(); l.tryFn(); return; }
+  const c=e.target.closest('.quiz button[data-c]'); if(!c) return;
+  const qz=c.closest('.quiz'), l=LESSONS.find(x=>x.id===qz.dataset.q), j=+c.dataset.c, fb=qz.querySelector('.fb');
+  qz.querySelectorAll('button').forEach(b=>b.classList.remove('ok','no'));
+  if(j===l.ok){ c.classList.add('ok'); fb.style.color='#5ec27a'; fb.textContent='✓ ถูกต้อง! ได้ดาว ⭐ — '+l.fb;
+    learnDone.add(l.id); saveLearn(); syncLearnProg(); }
+  else { c.classList.add('no'); fb.style.color='#ff9a8a'; fb.textContent='✗ ยังไม่ใช่ ลองอ่านอีกนิดแล้วตอบใหม่นะ'; }
+};
+$('bUndo').onclick=()=>undo();
+$('bUIHide').onclick=()=>{ overlayHidden=!overlayHidden;
+  $('bUIHide').classList.toggle('on',overlayHidden);
+  applyOverlayVisibility();
+  say(overlayHidden?'ซ่อนจุดหมุน/gizmo แล้ว':'แสดงจุดหมุน/gizmo แล้ว'); };
+
+/* ═════ TOUCH ═════ */
+const el=renderer.domElement;
+el.oncontextmenu=e=>e.preventDefault();
+let down=null,live=0,gizDrag=null;
+function ptrToRay(mx,my,r){ ptr.set(mx/r.width*2-1,-(my/r.height)*2+1); ray.setFromCamera(ptr,camera); }
+function gizHit(mx,my,r){
+  ptrToRay(mx,my,r);
+  const hit=ray.intersectObjects([gizCenter,...gizHandles],false)[0];
+  if(!hit) return null;
+  return hit.object===gizCenter ? -1 : gizHandles.indexOf(hit.object);
+}
+function startGizDrag(ai,e,r){
+  const p=rig.parts.get(selPart); if(!p) return;
+  commit(); controls.enabled=false;
+  const prevJitter=U.uJitter.value; U.uJitter.value=0;
+  const origin=gizGroup.position.clone();
+  const mx=e.clientX-r.left, my=e.clientY-r.top;
+  // โหมดปั้น: เก็บค่าเริ่มต้นไว้คิดระยะเลื่อน (แปลงจากพิกัดโลกเป็นพิกัดของชิ้นแม่)
+  const build=mode==='build'?{ shift0:[...p.shift],
+    parentQinv:(p.parent!=null&&rig.parts.has(p.parent)?rig.worlds().Q.get(p.parent).clone().invert():new THREE.Quaternion()) }:null;
+  if(ai===-1){
+    const nrm=new THREE.Vector3(); camera.getWorldDirection(nrm);
+    const plane=new THREE.Plane().setFromNormalAndCoplanarPoint(nrm,origin);
+    gizDrag={ ai:-1,plane,origin,pointerId:e.pointerId,prevJitter,build };
+    const s=new THREE.Vector3(); ptrToRay(mx,my,r);
+    if(ray.ray.intersectPlane(plane,s)) gizDrag.grab=s.sub(origin);
+  } else {
+    // ระนาบที่ "ประกอบ" แกนนี้ไว้ และหันเข้าหากล้องมากที่สุด
+    const axis=GIZ_AXES[ai].axis.clone();
+    const view=new THREE.Vector3(); camera.getWorldDirection(view);
+    let nrm=view.clone().sub(axis.clone().multiplyScalar(view.dot(axis)));
+    if(nrm.lengthSq()<1e-6) nrm=new THREE.Vector3().crossVectors(axis,camera.up);
+    if(nrm.lengthSq()<1e-6) nrm.set(0,0,1);
+    nrm.normalize();
+    const plane=new THREE.Plane().setFromNormalAndCoplanarPoint(nrm,origin);
+    // จำจุดที่คว้าบนแกนไว้ (ทั้งโหมดท่าทางและโหมดปั้น) ไม่ให้ตำแหน่งกระโดดไปที่ลูกศรตอนเริ่มลาก
+    ptrToRay(mx,my,r); const s=new THREE.Vector3();
+    const t0=ray.ray.intersectPlane(plane,s)?s.sub(origin).dot(axis):0;
+    gizDrag={ ai,axis,plane,origin,pointerId:e.pointerId,prevJitter,build,t0 };
+  }
+  try{ el.setPointerCapture(e.pointerId); }catch(err){}
+  moveGizDrag(e);
+}
+// ตั้งให้ "จุดกำเนิดในพิกัดโลก" ของ p ไปอยู่ตรง targetWorld เป๊ะๆ — ถ้าการบิดข้อต่อแม่ (ikSolve) ทำให้
+// พิกัดโลกของ p เพี้ยนไปจากเดิม (เพราะ off ของ p อ้างอิงกับพิกัดท้องถิ่นของแม่ที่เพิ่งหมุนเปลี่ยนไป)
+// ให้วนแก้ off ซ้ำจนกว่าตำแหน่งจริงจะตรงเป้าหมาย (ลู่เข้าไว ปกติ 2-3 รอบก็พอ)
+function setPartWorldPos(p,targetWorld){
+  if(p.parent==null||!rig.parts.has(p.parent)){
+    const piv=rig.pivotOf(p);
+    p.off.set(targetWorld.x-piv[0],targetWorld.y-piv[1],targetWorld.z-piv[2]);
+  } else {
+    const piv=rig.pivotOf(p);
+    const pivV=new THREE.Vector3(piv[0],piv[1],piv[2]);
+    for(let pass=0;pass<3;pass++){
+      const {W}=rig.worlds();
+      const inv=W.get(p.parent).clone().invert();
+      const localTarget=targetWorld.clone().applyMatrix4(inv);
+      p.off.copy(localTarget).sub(pivV);
+      if(p.ikChain) ikSolve(p); else break;
+    }
+  }
+  if(p.pinned) pinUpdate(p);
+  solvePins(p.id);
+}
+function moveGizDrag(e){
+  const p=rig.parts.get(selPart); if(!p||!gizDrag){ return; }
+  const r=el.getBoundingClientRect();
+  const mx=e.clientX-r.left, my=e.clientY-r.top;
+  ptrToRay(mx,my,r);
+  let targetWorld;
+  if(gizDrag.ai===-1){
+    const cur=new THREE.Vector3();
+    if(!ray.ray.intersectPlane(gizDrag.plane,cur)) return;
+    // ไม่ให้ "กระโดด" มาที่นิ้วตอนเริ่มลากตรงกลาง: หักระยะจุดที่คว้าออก
+    targetWorld=gizDrag.grab?cur.sub(gizDrag.grab):cur;
+  } else {
+    const hitPt=new THREE.Vector3();
+    if(!ray.ray.intersectPlane(gizDrag.plane,hitPt)) return;
+    const t=hitPt.clone().sub(gizDrag.origin).dot(gizDrag.axis)-gizDrag.t0;
+    targetWorld=gizDrag.origin.clone().add(gizDrag.axis.clone().multiplyScalar(t));
+  }
+  const b=gizDrag.build;
+  if(b){
+    const dl=targetWorld.clone().sub(gizDrag.origin).applyQuaternion(b.parentQinv);
+    const r2=v=>Math.round(v*100)/100;
+    p.shift=[r2(b.shift0[0]+dl.x),r2(b.shift0[1]+dl.y),r2(b.shift0[2]+dl.z)];
+    refreshAll();
+    say('ตำแหน่ง  '+p.shift.map(v=>v.toFixed(2)).join(' · '));
+    return;
+  }
+  setPartWorldPos(p,targetWorld);
+  refreshAll();
+}
+function endGizDrag(){
+  if(!gizDrag) return;
+  const wasBuild=!!gizDrag.build;
+  U.uJitter.value=gizDrag.prevJitter; gizDrag=null; controls.enabled=true;
+  if(wasBuild&&edgeSnap) snapEdges(true);
+  if(autoKey&&mode==='pose') setKey(Math.round(frame));
+  done('');
+}
+el.addEventListener('pointerdown',e=>{ live++;
+  if(live===1&&gizGroup.visible){
+    const r=el.getBoundingClientRect(), ai=gizHit(e.clientX-r.left,e.clientY-r.top,r);
+    if(ai!==null){ startGizDrag(ai,e,r); return; }
+  }
+  if(live===1&&faceGiz.visible){
+    const r=el.getBoundingClientRect();
+    if(faceGizHit(e.clientX-r.left,e.clientY-r.top,r)){ startFaceDrag(e); if(faceDrag) return; }
+  }
+  down = live>1 ? null : {x:e.clientX,y:e.clientY,t:Date.now(),id:e.pointerId,m:e.pointerType==='mouse'}; });
+el.addEventListener('pointermove',e=>{ if(gizDrag&&e.pointerId===gizDrag.pointerId) moveGizDrag(e);
+  if(faceDrag&&e.pointerId===faceDrag.pointerId) moveFaceDrag(e); });
+el.addEventListener('pointerup',e=>{
+  live=Math.max(0,live-1);
+  if(gizDrag&&e.pointerId===gizDrag.pointerId){ endGizDrag(); return; }
+  if(faceDrag&&e.pointerId===faceDrag.pointerId){ endFaceDrag(); return; }
+  if(!down||down.id!==e.pointerId){ down=null; return; }
+  const d=Math.hypot(e.clientX-down.x,e.clientY-down.y);
+  const ok=d<(down.m?4:16)&&Date.now()-down.t<700;
+  down=null;
+  if(!ok) return;
+  const r=el.getBoundingClientRect();
+  if(edgePickMode){ pickEdgeAt(e.clientX-r.left,e.clientY-r.top,r); return; }
+  pick(e.clientX-r.left,e.clientY-r.top);
+});
+el.addEventListener('pointercancel',()=>{ live=0; down=null; if(gizDrag) endGizDrag(); if(faceDrag) endFaceDrag(); });
+addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  const k=e.key.toLowerCase();
+  if((e.ctrlKey||e.metaKey)&&k==='z'){ e.preventDefault(); undo(); return; }
+  if(e.code==='Numpad5'){ setOrtho(!isOrtho); return; }   // เหมือน Blender
+  if(mode==='pose'){
+    if(e.key==='ArrowLeft'){ e.preventDefault(); stopPlay(); goTo(Math.round(frame)-1); return; }
+    if(e.key==='ArrowRight'){ e.preventDefault(); stopPlay(); goTo(Math.round(frame)+1); return; }
+    if(e.code==='Space'){ e.preventDefault(); togglePlay(); return; }
+    if(k==='k'){ keyNow(); return; }
+  }
+  if(k==='e'&&mode==='build') doExtrude();
+  if(k==='s'&&mode==='build'&&selPart!=null){ commit(); snapEdges(false); }
+  if(e.key==='ArrowUp'){ e.preventDefault(); selStep(-1); }
+  if(e.key==='ArrowDown'){ e.preventDefault(); selStep(1); }
+});
+
+/* ═════ EXPORT ═════ */
+// ขนาดกล่องตอนส่งออก — หดชิ้นลูกเข้าไปชั้นละ 1 มม. เฉพาะสองแกนที่ตั้งฉากกับทิศต่อ (ด้านข้าง/หน้า/หลัง)
+// ผิวของชิ้นที่ลึกกว่าจะจมหลังผิวชิ้นแม่เสมอ ไม่มีระนาบซ้อนกันพอดี เลยไม่กระพริบในโปรแกรมอื่น
+// (แกนตามทิศต่อไม่หด ข้อต่อจะได้ไม่มีช่องโหว่) — ในแอปใช้ shader แทน ค่าในโปรเจกต์ไม่เปลี่ยน
+const EXPORT_INSET=.001;
+function exportSize(p){
+  let depth=0; for(let q=p.parent;q!=null&&rig.parts.has(q);q=rig.parts.get(q).parent) depth++;
+  const ax=axisOf(p.dir);
+  return p.size.map((v,a)=>a===ax?v:Math.max(v*.9,v-2*EXPORT_INSET*depth));
+}
+/* ═════ EXPORT .glb (skeletal glTF, มีแอนิเมชันจริง) ═════ */
+function buildExportBody(bindFrame){
+  if(bindFrame!=null&&clip.keys.length) evalAt(bindFrame);
+  const root=new THREE.Group(); root.name='BoxBeatRig';
+  const nodes=new Map();
+  for(const p of rig.order()){
+    const g=new THREE.Group(); g.name='p_'+p.id;
+    const pv=rig.pivotOf(p);
+    g.position.set(pv[0]+p.off.x,pv[1]+p.off.y,pv[2]+p.off.z);
+    g.quaternion.copy(p.rest).multiply(p.rot);
+    nodes.set(p.id,g);
+    (p.parent!=null&&nodes.has(p.parent)?nodes.get(p.parent):root).add(g);
+    if(!p.noMesh&&!p.spline){
+      const o=rig.offsetOf(p);
+      const geo=new THREE.BoxGeometry(...exportSize(p));
+      const col=new THREE.Color().setHSL(p.hue,.4,.66);
+      const n=geo.attributes.position.count, colArr=new Float32Array(n*3);
+      for(let i=0;i<n;i++) colArr.set([col.r,col.g,col.b],i*3);
+      geo.setAttribute('color',new THREE.BufferAttribute(colArr,3));
+      const mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,metalness:0}));
+      mesh.position.set(o[0],o[1],o[2]);
+      g.add(mesh);
+    }
+  }
+  return { root, nodes };
+}
+// หาง Spline → SkinnedMesh + โซ่กระดูก N ท่อน (กระดูกแรกอยู่ที่โคนหางใต้ node ของชิ้นเอง)
+// แต่ละวงหน้าตัดผูกกับกระดูกเดียวแบบแข็ง (สไตล์ PS1) เหมือนที่แอปวาด
+function buildExportTail(p,bake,bodyNodes){
+  const node=bodyNodes.get(p.id), data=bake.tails.find(t=>t.partId===p.id); if(!node||!data) return null;
+  const g=tailGeom(p), N=data.N, bones=[]; let prev=null;
+  for(let k=0;k<N;k++){
+    const b=new THREE.Bone(); b.name=`tail_${p.id}_b${k}`;
+    if(k===0) b.position.copy(g.base); else b.position.copy(g.d).multiplyScalar(g.seg);
+    b.quaternion.fromArray(data.bones[k].quats,0);
+    (prev||node).add(b); bones.push(b); prev=b;
+  }
+  node.updateWorldMatrix(true,true);
+  const pos=[],colA=[],si=[],sw=[], col=new THREE.Color().setHSL(p.hue,.4,.66);
+  const ringLocal=k=>{ const sc=1+(p.spline.taper-1)*k/N, P=g.P.clone().multiplyScalar(g.hP*sc), U=g.U.clone().multiplyScalar(g.hU*sc);
+    const c=k<N?new THREE.Vector3():g.d.clone().multiplyScalar(g.seg);
+    return [c.clone().sub(P).sub(U),c.clone().add(P).sub(U),c.clone().add(P).add(U),c.clone().sub(P).add(U)]; };
+  const vtx=(k,j)=>{ const bi=Math.min(k,N-1), v=ringLocal(k)[j]; bones[bi].localToWorld(v);
+    pos.push(v.x,v.y,v.z); colA.push(col.r,col.g,col.b); si.push(bi,0,0,0); sw.push(1,0,0,0); return pos.length/3-1; };
+  const idx=[];
+  const ringIdx=[]; for(let k=0;k<=N;k++) ringIdx.push([0,1,2,3].map(j=>vtx(k,j)));
+  for(let k=0;k<N;k++) for(let j=0;j<4;j++){ const a=ringIdx[k][j],b=ringIdx[k][(j+1)%4],c=ringIdx[k+1][(j+1)%4],d=ringIdx[k+1][j];
+    idx.push(a,d,c, a,c,b); }
+  const r0=ringIdx[0], rN=ringIdx[N]; idx.push(r0[0],r0[1],r0[2], r0[0],r0[2],r0[3], rN[0],rN[2],rN[1], rN[0],rN[3],rN[2]);
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(colA,3));
+  geo.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(si,4));
+  geo.setAttribute('skinWeight',new THREE.Float32BufferAttribute(sw,4));
+  geo.setIndex(idx); geo.computeVertexNormals();
+  const mesh=new THREE.SkinnedMesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,roughness:1,metalness:0}));
+  mesh.name='tail_'+p.id; mesh.bind(new THREE.Skeleton(bones));
+  return mesh;
+}
+function buildAnimationClip(bake){
+  const tracks=[];
+  for(const bt of bake.bodyTracks){
+    const interpMode=bt.step?THREE.InterpolateDiscrete:THREE.InterpolateLinear;
+    const name='p_'+bt.partId, pivot=rig.pivotOf(rig.parts.get(bt.partId));
+    const posVals=bt.offs.map((val,idx)=>val+pivot[idx%3]);
+    tracks.push(new THREE.QuaternionKeyframeTrack(name+'.quaternion',bt.times,bt.quats,interpMode));
+    tracks.push(new THREE.VectorKeyframeTrack(name+'.position',bt.times,posVals,interpMode));
+  }
+  for(const t of bake.tails||[]) t.bones.forEach((b,k)=>
+    tracks.push(new THREE.QuaternionKeyframeTrack(`tail_${t.partId}_b${k}.quaternion`,b.times,b.quats,THREE.InterpolateLinear)));
+  return tracks.length?new THREE.AnimationClip('Action',-1,tracks):null;
+}
+function dlBinary(buf,n){ const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([buf],{type:'model/gltf-binary'})); a.download=n; a.click(); }
+function expGlb(){
+  const baked=bakeAll();
+  const savedPose=poseSnap(), savedFrame=frame;
+  try{
+    const {root,nodes}=buildExportBody(clip.keys.length>=2?0:null);
+    for(const q of rig.parts.values()) if(q.spline){ const mesh=buildExportTail(q,baked,nodes); if(mesh) root.add(mesh); }
+    const clipObj=buildAnimationClip(baked);
+    new GLTFExporter().parse(root,
+      glb=>{ dlBinary(glb,'boxbeat.glb'); say('บันทึก .glb แล้ว'); },
+      err=>{ console.error(err); say('ส่งออก .glb ไม่สำเร็จ'); },
+      { binary:true, animations: clipObj?[clipObj]:[] });
+  } finally { applyPose(savedPose); frame=savedFrame; refreshAll(); }
+}
+
+/* ═════ NAV GIZMO (มุมกล้องแบบ Blender) ═════
+   วงกลมแกน X/Y/Z หมุนตามกล้อง — แตะแกน = หันกล้องไปมุมนั้น (แตะซ้ำ = กลับด้าน) · ลาก = หมุนรอบโมเดล */
+const navC=$('navGiz'), navX=navC.getContext('2d');
+const NAV_SZ=100, NAV_R=34, NAV_DOT=10;
+const NAV_AX=[
+  {v:new THREE.Vector3(1,0,0),col:'#e0503c',lab:'X',view:'มุมซ้าย'},
+  {v:new THREE.Vector3(-1,0,0),col:'#e0503c',view:'มุมขวา'},
+  {v:new THREE.Vector3(0,1,0),col:'#5ec27a',lab:'Y',view:'มุมบน'},
+  {v:new THREE.Vector3(0,-1,0),col:'#5ec27a',view:'มุมล่าง'},
+  {v:new THREE.Vector3(0,0,1),col:'#4fa0e6',lab:'Z',view:'มุมหน้า'},
+  {v:new THREE.Vector3(0,0,-1),col:'#4fa0e6',view:'มุมหลัง'},
+];
+let navPts=[], navHover=-1, navAnim=null, navDrag=null;
+function drawNav(){
+  const dpr=devicePixelRatio||1, px=Math.round(NAV_SZ*dpr);
+  if(navC.width!==px){ navC.width=navC.height=px; }
+  navX.setTransform(dpr,0,0,dpr,0,0); navX.clearRect(0,0,NAV_SZ,NAV_SZ);
+  const inv=camera.quaternion.clone().invert(), c=NAV_SZ/2;
+  navPts=NAV_AX.map((a,i)=>{ const v=a.v.clone().applyQuaternion(inv);
+    return {i,x:c+v.x*NAV_R,y:c-v.y*NAV_R,z:v.z}; });
+  // เส้นแกนบวก
+  for(const p of navPts){ const a=NAV_AX[p.i]; if(!a.lab) continue;
+    navX.strokeStyle=a.col; navX.lineWidth=2.5; navX.globalAlpha=.9;
+    navX.beginPath(); navX.moveTo(c,c); navX.lineTo(p.x,p.y); navX.stroke(); }
+  navX.globalAlpha=1;
+  // วาดจากหลังไปหน้า
+  for(const p of [...navPts].sort((a,b)=>a.z-b.z)){ const a=NAV_AX[p.i];
+    navX.beginPath(); navX.arc(p.x,p.y,a.lab?NAV_DOT:NAV_DOT-2,0,Math.PI*2);
+    if(a.lab){ navX.fillStyle=a.col; navX.fill(); }
+    else { navX.fillStyle='rgba(20,22,28,.85)'; navX.fill(); navX.strokeStyle=a.col; navX.lineWidth=2; navX.stroke(); }
+    if(p.i===navHover){ navX.strokeStyle='#fff'; navX.lineWidth=2; navX.stroke(); }
+    if(a.lab){ navX.fillStyle='#15171d'; navX.font='bold 12px sans-serif';
+      navX.textAlign='center'; navX.textBaseline='middle'; navX.fillText(a.lab,p.x,p.y+.5); }
+  }
+}
+function navHit(e){
+  const r=navC.getBoundingClientRect(), x=e.clientX-r.left, y=e.clientY-r.top;
+  let best=-1,bz=-Infinity;
+  for(const p of navPts) if(Math.hypot(p.x-x,p.y-y)<=NAV_DOT+2&&p.z>bz){ bz=p.z; best=p.i; }
+  return best;
+}
+function navSnap(i){
+  const off=camera.position.clone().sub(controls.target), dist=off.length(), from=off.clone().normalize();
+  let to=NAV_AX[i].v.clone();
+  if(from.dot(to)>.999){ i^=1; to=NAV_AX[i].v.clone(); }   // แตะมุมที่ดูอยู่แล้ว = กลับด้าน
+  if(Math.abs(to.y)>.99) to.set(0,to.y,to.y>0?.002:-.002).normalize(); // กัน OrbitControls ล็อกตอนมองตรงบน/ล่าง
+  navAnim={ from, q:new THREE.Quaternion().setFromUnitVectors(from,to), dist, t:0 };
+  say(NAV_AX[i].view);
+}
+function stepNav(dt){
+  if(!navAnim) return;
+  navAnim.t=Math.min(1,navAnim.t+dt/.25);
+  const e=navAnim.t*navAnim.t*(3-2*navAnim.t);
+  const q=new THREE.Quaternion().slerp(navAnim.q,e);
+  camera.position.copy(controls.target).add(navAnim.from.clone().applyQuaternion(q).multiplyScalar(navAnim.dist));
+  camera.lookAt(controls.target);
+  if(navAnim.t>=1) navAnim=null;
+}
+navC.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation();
+  navC.setPointerCapture(e.pointerId); navDrag={x:e.clientX,y:e.clientY,moved:false}; });
+navC.addEventListener('pointermove',e=>{
+  if(!navDrag){ const h=navHit(e); if(h!==navHover){ navHover=h; } return; }
+  const dx=e.clientX-navDrag.x, dy=e.clientY-navDrag.y;
+  if(!navDrag.moved&&Math.hypot(dx,dy)<4) return;
+  navDrag.moved=true; navAnim=null; navDrag.x=e.clientX; navDrag.y=e.clientY;
+  const off=camera.position.clone().sub(controls.target), s=new THREE.Spherical().setFromVector3(off);
+  s.theta-=dx*.012; s.phi=THREE.MathUtils.clamp(s.phi-dy*.012,.01,Math.PI-.01);
+  camera.position.copy(controls.target).add(new THREE.Vector3().setFromSpherical(s));
+  camera.lookAt(controls.target);
+});
+navC.addEventListener('pointerup',e=>{
+  if(navDrag&&!navDrag.moved){ const h=navHit(e); if(h>=0) navSnap(h); }
+  navDrag=null; });
+navC.addEventListener('pointerleave',()=>{ if(!navDrag) navHover=-1; });
+$('bOrtho').onclick=()=>{ setOrtho(!isOrtho); say(isOrtho?'มุมมอง Orthographic (ไม่มีระยะลึก)':'มุมมอง Perspective'); };
+
+/* ═════ LOOP ═════ */
+function resize(){
+  const w=innerWidth,h=innerHeight,s=PS1.pixel;
+  renderer.setPixelRatio(1);
+  renderer.setSize(Math.max(1,Math.floor(w/s)),Math.max(1,Math.floor(h/s)),false);
+  perspCam.aspect=w/h; perspCam.updateProjectionMatrix(); fitOrtho();
+}
+addEventListener('resize',()=>{ stripSig=''; resize(); syncHead(); });
+addEventListener('orientationchange',()=>setTimeout(()=>{ stripSig=''; resize(); syncHead(); },300));
+addEventListener('visibilitychange',()=>{ if(document.hidden) save(); });
+addEventListener('beforeunload',save);
+let last=performance.now();
+function loop(){
+  requestAnimationFrame(loop);
+  const now=performance.now(),dt=Math.min((now-last)/1000,.1); last=now;
+  if(playing&&clip.keys.length){
+    frame=(frame+dt*clip.fps)%clip.len;
+    evalAt(frame); refreshAll();
+  }
+  stepNav(dt);
+  controls.update();
+  drawNav();
+  if(gizGroup.visible) updateGizmo(); else if(faceGiz.visible) updateFaceGiz();
+  updateCtrlMarks();
+  const cdt=Math.min(dt,1/30);
+  if(tails.size){ stepTails(cdt); updateTailMeshes(); }
+  renderer.render(scene,camera);
+}
+
+/* ═════ START ═════ */
+const hadSave=loadSaved();
+syncSet(); setMode('build'); resize(); refreshAll(); loop();
+openStart();
+if(!hadSave) $('bResume').style.display='none';
+</script>
+</body>
+</html>
