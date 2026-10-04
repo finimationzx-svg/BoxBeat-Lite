@@ -512,6 +512,8 @@
     <h3>แอนิเมชัน</h3>
     <button data-a="walk" style="width:100%">สร้างวงจรเคลื่อนไหวอัตโนมัติ ★ (ตามชนิดตัวละคร)</button>
     <button data-a="autokey" id="bAuto" style="width:100%">บันทึกคีย์อัตโนมัติ</button>
+    <button data-a="ground" id="bGround" class="on" style="width:100%;margin-top:6px">🦶 กันเท้าจมพื้น: เปิด</button>
+    <div class="note">เท้า (จุด IK ล่างสุดของตัว) แปะพื้นเองโดยไม่ต้องปักหมุด: ย่อตัวแล้วเข่าพับ ยกตัวขึ้นแล้วขายืดลงหาพื้นจนสุดก่อนเท้าจะลอยตาม — อยากยกเท้า ให้ลากเท้าขึ้น แอปจะจำความสูงจากพื้นไว้ในคีย์นั้น (ท่าจาก ★ ขยับอัตโนมัติ เท้าขยับตามขาเอง แค่ไม่จมพื้น) ทำงานทั้งตอนจัดท่า ตอนเล่น และตอนส่งออก</div>
     <div class="lb" style="margin-top:10px">รูปแบบไล่เฟรม (ท่าระหว่างคีย์เคลื่อนแบบไหน)</div>
     <div class="g2" style="grid-template-columns:repeat(3,1fr)" id="interpBtnsGlobal"></div>
     <button data-a="delkey" style="width:100%;margin-top:6px">ลบคีย์ที่เฟรมนี้ (หรือแตะค้างที่เพชรบนไทม์ไลน์)</button>
@@ -815,7 +817,7 @@ function serialize(){ return { v:11,
     ikChain:p.ikChain,pinned:p.pinned,pinPos:p.pinPos,noMesh:p.noMesh,poleDir:p.poleDir,spline:p.spline})),
   clip:{len:clip.len,div:clip.div,fps:clip.fps,interp:clip.interp,keys:clip.keys},
   anims:anims.map(a=>({name:a.name,len:a.len,div:a.div,interp:a.interp,keys:a.keys})),
-  animIdx:anims.indexOf(clip) }; }
+  animIdx:anims.indexOf(clip), groundLock }; }
 function deserialize(o){
   if(!o||!o.parts) throw new Error('ไม่ใช่ไฟล์ของแอปนี้');
   rig=new Rig();
@@ -832,15 +834,19 @@ function deserialize(o){
       clip.div=o.clip.div||Math.max(1,Math.min(4,Math.round(clip.len/(o.clip.fps||clip.len))));
       clip.interp=o.clip.interp||(o.clip.step?'step':'linear'); clip.keys=o.clip.keys||[]; }
   }
+  groundLock=o.groundLock!==false;
   syncAnimUI();
   selPart=null; selFace=-1; frame=0; playing=false; stripSig=''; syncSet(); evalAt(0);
 }
 
 /* ═════ ANIM ═════ */
-const poseSnap=()=>{ const o={}; for(const p of rig.parts.values()){
-  o[p.id]={r:p.rot.toArray(),o:p.off.toArray()}; if(p.spline) o[p.id].b=[...p.bend]; } return o; };
+// เท้า (จุด IK ล่างสุด) เก็บ l = ความสูงจากพื้น: 0 = แปะพื้น, ตัวเลข = ยกขึ้นเท่านั้น, null = ปล่อยตามขา (ท่าอัตโนมัติ/งานเก่า)
+const poseSnap=()=>{ const o={}, feet=new Set(footInfo().map(f=>f.p.id)); for(const p of rig.parts.values()){
+  o[p.id]={r:p.rot.toArray(),o:p.off.toArray()}; if(p.spline) o[p.id].b=[...p.bend];
+  if(feet.has(p.id)) o[p.id].l=(p.lift===undefined?0:p.lift); } return o; };
 function applyPose(s){ for(const p of rig.parts.values()){ const d=s[p.id]; if(!d)continue;
-  p.rot.fromArray(d.r); p.off.fromArray(d.o); if(p.spline) p.bend=d.b?[...d.b]:[0,0,0]; } }
+  p.rot.fromArray(d.r); p.off.fromArray(d.o); if(p.spline) p.bend=d.b?[...d.b]:[0,0,0];
+  p.lift=('l' in d)?d.l:null; } }
 function setKey(t){ const i=clip.keys.findIndex(k=>k.t===t),k={t,pose:poseSnap()};
   if(i>=0) clip.keys[i]=k; else { clip.keys.push(k); clip.keys.sort((a,b)=>a.t-b.t); } stripSig=''; }
 function delKey(t){ clip.keys=clip.keys.filter(k=>k.t!==t); stripSig=''; }
@@ -884,6 +890,9 @@ const partInterp=()=>clip.interp;
 })();
 function evalAt(t){
   if(!clip.keys.length) return;
+  evalKeys(t); applyGround();
+}
+function evalKeys(t){
   const f=clip.keys[0], l=clip.keys[clip.keys.length-1];
   if(clip.keys.length===1||t<=f.t){ applyPose(f.pose); return; }
   if(t>=l.t){ applyPose(l.pose); return; }
@@ -898,11 +907,13 @@ function evalAt(t){
     qa.fromArray(pa.r); qb.fromArray(pb.r); p.rot.copy(qa).slerp(qb,up);
     p.off.set(pa.o[0]+(pb.o[0]-pa.o[0])*up,pa.o[1]+(pb.o[1]-pa.o[1])*up,pa.o[2]+(pb.o[2]-pa.o[2])*up);
     if(p.spline){ const ba=pa.b||[0,0,0], bb=pb.b||[0,0,0]; p.bend=ba.map((v,i)=>v+(bb[i]-v)*up); }
+    p.lift=(typeof pa.l==='number'&&typeof pb.l==='number')?pa.l+(pb.l-pa.l)*up:null;
   }
 }
 const byName=n=>[...rig.parts.values()].find(p=>p.name===n);
 function setPose(m,bob){
-  for(const p of rig.parts.values()){ p.rot.identity(); p.off.set(0,0,0); p.bend=[0,0,0]; }
+  // ท่าอัตโนมัติขยับขาเอง — เท้าปล่อยตามขา (กันแค่ไม่ให้จมพื้น)
+  for(const p of rig.parts.values()){ p.rot.identity(); p.off.set(0,0,0); p.bend=[0,0,0]; p.lift=null; }
   // ค่าต่อชิ้น: [แกน,องศา] หรือหลายแกน [[แกน,องศา],[แกน,องศา],...] (คูณต่อกันตามลำดับ)
   const q=new THREE.Quaternion();
   for(const k in m){ const p=byName(k); if(!p) continue;
@@ -1609,6 +1620,15 @@ function bakeAll(){
 // แล้วส่งออกเป็น LINEAR แทน
 function bakeBodyTracksForGLTF(){
   const fps=clip.fps;
+  // กันเท้าจมพื้นคำนวณสดตอนเล่น — ระหว่างคีย์ขาอาจถูกพับเพิ่ม จึงต้องเก็บท่าทุกเฟรมแทนคีย์ห่างๆ
+  if(groundLock&&clip.keys.length>=2&&footInfo().length){
+    const T=new Map(), N=Math.max(1,Math.round(clip.len));
+    for(const p of rig.parts.values()) T.set(p.id,{ partId:p.id, times:[], quats:[], offs:[], step:clip.interp==='step' });
+    for(let i=0;i<=N*2;i++){ const f=i/2; evalAt(f);   // ครึ่งเฟรม: ระหว่างจุดเท้าแทบไม่ต่ำกว่าพื้น
+      for(const p of rig.parts.values()){ const t=T.get(p.id);
+        t.times.push(f/fps); t.quats.push(p.rot.x,p.rot.y,p.rot.z,p.rot.w); t.offs.push(p.off.x,p.off.y,p.off.z); } }
+    return [...T.values()];
+  }
   const tracks=[];
   for(const p of rig.parts.values()){
     const im=partInterp(p), dense=(im!=='linear'&&im!=='step');
@@ -2002,10 +2022,15 @@ function nudgeRot(a,s){
 }
 function nudgeMove(a,s){
   const p=rig.parts.get(selPart); if(!p)return;
-  p.off.setComponent(a,p.off.getComponent(a)+s*STEP);
-  if(p.ikChain) ikSolve(p);
-  if(p.pinned) pinUpdate(p);
-  if(mode==='pose') solvePins(p.id);
+  if(mode==='pose'&&p.ikChain>0&&p.parent!=null){
+    // จุด IK: ขึ้น/ลง/ซ้าย/ขวา ตามแกนโลก (เหมือนลาก gizmo) ไม่ใช่แกนของชิ้นแม่ที่งออยู่ — กดขึ้นแล้วขึ้นตรงๆ
+    const w=worldPosOf(p); w.setComponent(a,w.getComponent(a)+s*STEP); setPartWorldPos(p,w);
+  } else {
+    p.off.setComponent(a,p.off.getComponent(a)+s*STEP);
+    if(p.ikChain) ikSolve(p);
+    if(p.pinned) pinUpdate(p);
+    if(mode==='pose') solvePins(p.id);
+  }
   if(autoKey&&mode==='pose') setKey(Math.round(frame));
   done('');
 }
@@ -2109,6 +2134,32 @@ function solvePins(exceptId){
   for(const p of rig.parts.values()){
     if(p.id===exceptId||!p.pinned||!p.ikChain) continue;
     solveChainTo(p,p.ikChain,new THREE.Vector3(p.pinPos[0],p.pinPos[1],p.pinPos[2]));
+  }
+  applyGround(exceptId);
+}
+/* ═════ กันเท้าจมพื้น / เท้าแปะพื้น ═════
+   "เท้า" = จุด IK ที่อยู่ล่างสุดของตัวในท่าปั้น · พื้นของเท้าแต่ละข้าง = ความสูงที่มันยืนอยู่ในท่าปั้น
+   p.lift = ความสูงจากพื้นที่ผู้ใช้ตั้งไว้ (เก็บในคีย์) — ข้อต่อขาพับ/ยืดให้เท้าอยู่ที่ความสูงนั้นเสมอ
+   ยกตัวขึ้นแล้วเท้ายังแปะพื้นจนขายืดสุด จึงค่อยลอยตาม · null = ปล่อยตามขา แค่ไม่ให้จมใต้พื้น */
+let groundLock=true;
+function footInfo(){
+  const ctr=[...rig.parts.values()].filter(p=>p.ikChain>0&&p.parent!=null&&rig.parts.has(p.parent));
+  if(!ctr.length) return [];
+  const RW=restWorlds(), ys=new Map(); let lo=Infinity, hi=-Infinity;
+  for(const p of rig.parts.values()){ const y=new THREE.Vector3().setFromMatrixPosition(RW.get(p.id)).y;
+    ys.set(p.id,y); lo=Math.min(lo,y); hi=Math.max(hi,y); }
+  // ต้องอยู่ใกล้ส่วนล่างสุดของทั้งตัว (มือที่กางอยู่กลางตัวจึงไม่นับเป็นเท้า)
+  const tol=Math.max(.05,(hi-lo)*.15);
+  return ctr.filter(p=>ys.get(p.id)-lo<=tol).map(p=>({p,y:ys.get(p.id)}));
+}
+function applyGround(exceptId){
+  if(!groundLock) return;
+  for(const {p,y} of footInfo()){
+    if(p.id===exceptId||p.pinned) continue;
+    const L=p.lift===undefined?0:p.lift, w=worldPosOf(p);
+    const ty=(L===null)?Math.max(w.y,y):y+Math.max(0,L);
+    if(Math.abs(w.y-ty)<1e-4) continue;
+    solveChainTo(p,p.ikChain,new THREE.Vector3(w.x,ty,w.z));
   }
 }
 function ikSetChain(p,n){
@@ -2522,6 +2573,8 @@ $('sheet').addEventListener('click',e=>{
     case 'piv': togglePiv(); break;
     case 'expglb': expGlb(); break;
     case 'expbvh': expBvh(); break;
+    case 'ground': commit(); groundLock=!groundLock; syncSet(); evalAt(frame); refreshAll(); save();
+      say(groundLock?'กันเท้าจมพื้น: เปิด — เท้าจะไม่ลงไปใต้พื้น':'กันเท้าจมพื้น: ปิด'); break;
     case 'filesheet': openSheet('shFile'); break;
     case 'savefile': saveProjectFile(); break;
     case 'openfile': openProjectFile(); break;
@@ -2603,6 +2656,8 @@ function syncSet(){
   syncSpeed();
   syncInterpBtns();
   $('bAuto').classList.toggle('on',autoKey);
+  $('bGround').classList.toggle('on',groundLock);
+  $('bGround').textContent='🦶 กันเท้าจมพื้น: '+(groundLock?'เปิด':'ปิด');
 }
 const sld=(s,v,fn,d)=>{ const e=$(s),dec=(d===undefined?2:d);
   e.oninput=()=>{ $(v).textContent=(+e.value).toFixed(dec); fn(+e.value); }; };
@@ -2916,6 +2971,10 @@ function startGizDrag(ai,e,r){
 // พิกัดโลกของ p เพี้ยนไปจากเดิม (เพราะ off ของ p อ้างอิงกับพิกัดท้องถิ่นของแม่ที่เพิ่งหมุนเปลี่ยนไป)
 // ให้วนแก้ off ซ้ำจนกว่าตำแหน่งจริงจะตรงเป้าหมาย (ลู่เข้าไว ปกติ 2-3 รอบก็พอ)
 function setPartWorldPos(p,targetWorld){
+  // ลากเท้าลงไปใต้พื้นไม่ได้ (ตอนเปิดกันเท้าจมพื้น)
+  if(groundLock&&mode==='pose'){ const f=footInfo().find(x=>x.p===p);
+    if(f){ if(targetWorld.y<f.y) targetWorld=targetWorld.clone().setY(f.y);
+      p.lift=targetWorld.y-f.y; } }   // จำความสูงเท้าจากพื้นไว้ในคีย์
   if(p.parent==null||!rig.parts.has(p.parent)){
     const piv=rig.pivotOf(p);
     p.off.set(targetWorld.x-piv[0],targetWorld.y-piv[1],targetWorld.z-piv[2]);
