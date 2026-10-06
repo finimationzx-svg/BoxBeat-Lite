@@ -33,8 +33,14 @@
   @media (max-width:430px){ #top{ gap:5px; padding:0 6px; } #top button{ padding:8px 9px; }
     #bUndo,#bUIHide,#bFile{ padding:8px 7px; } }
   /* ── ท่าแอนิเมชันหลายท่า (แถบเหนือไทม์ไลน์) ── */
-  #bAnim{ width:100%; margin-bottom:6px; padding:6px 10px; font-size:12px; text-align:left;
+  #tlTop{ display:flex; gap:5px; margin-bottom:6px; }
+  #bAnim{ flex:1 1 0; min-width:0; padding:6px 10px; font-size:12px; text-align:left;
           display:flex; align-items:center; gap:6px; background:#22283a; }
+  /* คัดลอก / วาง / วางสลับ — ใช้บ่อย จึงอยู่ข้างนอก กดครั้งเดียวจบ */
+  #tlTop .pp{ flex:none; padding:6px 9px; font-size:12px; white-space:nowrap; background:#2b3446; }
+  #tlTop .pp.off{ opacity:.45; }
+  #tlTop .pp.got{ border-color:var(--acc); }
+  @media (max-width:430px){ #tlTop{ gap:4px; } #tlTop .pp{ padding:6px 6px; font-size:11px; } #bAnim span{ display:none; } }
   #bAnim b{ flex:1; color:var(--acc); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
   #bAnim span{ color:var(--dim); font-size:11px; }
   input[type=text]{ width:100%; padding:10px; font:inherit; font-size:14px; color:var(--txt);
@@ -335,7 +341,12 @@
   </div>
 
   <div id="tl">
-    <button id="bAnim" title="เลือก / เพิ่มท่าแอนิเมชัน">🎞 <b id="vAnim">ท่า 1</b><span id="vAnimN">1 ท่า ▾</span></button>
+    <div id="tlTop">
+      <button id="bAnim" title="เลือก / เพิ่มท่าแอนิเมชัน">🎞 <b id="vAnim">ท่า 1</b><span id="vAnimN">1 ท่า ▾</span></button>
+      <button class="pp" data-pp="copy" title="คัดลอกท่าตอนนี้ทั้งตัว (Ctrl+C)">📋 คัดลอก</button>
+      <button class="pp off" data-pp="paste" id="bPaste" title="วางท่าที่คัดลอกไว้ที่เฟรมนี้ (Ctrl+V)">📌 วาง</button>
+      <button class="pp off" data-pp="pastem" id="bPasteM" title="วางสลับซ้าย-ขวา (Ctrl+Shift+V)">⇄ วางสลับ</button>
+    </div>
     <div id="tlBtns">
       <button data-t="pk">◀◆</button><button data-t="pf">◀</button>
       <button data-t="play">▶</button><button data-t="nf">▶</button>
@@ -492,10 +503,7 @@
     <div id="poseSection">
     <h3>ท่าทางทั้งตัว</h3>
     <div class="g2">
-      <button data-a="copy">คัดลอกท่า</button>
-      <button data-a="paste">วางท่า</button>
-      <button data-a="pastem">วางสลับ ซ้าย-ขวา</button>
-      <button data-a="restall">คืนท่าเริ่มต้น</button>
+      <button data-a="restall" style="grid-column:1/-1">คืนท่าเริ่มต้น</button>
     </div>
     <div class="note">จัดท่าเฟรม 0 → คัดลอกท่า → ไปครึ่งทาง → วางสลับซ้าย-ขวา จะได้วงจรเดินทันที</div>
     </div>
@@ -1748,7 +1756,7 @@ const closeStart=()=>document.body.classList.remove('start');
 function applyTemplate(name){
   const fn=TPL[name]; if(!fn) return;
   if(rig.parts.size) commit();
-  rig=fn(); anims=[newAnim('ท่า 1')]; clip=anims[0]; syncSet(); syncAnimUI(); stripSig=''; frame=0; playing=false;
+  rig=fn(); clipboard=null; syncPoseBtns(); anims=[newAnim('ท่า 1')]; clip=anims[0]; syncSet(); syncAnimUI(); stripSig=''; frame=0; playing=false;
   pendingEdge=null; updateEdgeHi();
   selPart = (name==='cube') ? 0 : null;
   selFace = (name==='cube') ? 2 : -1;
@@ -2454,6 +2462,34 @@ function wireKeyStrip(stripEl,sfFn,getTimes){
 }
 wireKeyStrip(strip,sf,()=>clip.keys.map(k=>k.t));
 wireKeyStrip(stripIK,sfIK,()=>{ const p=rig.parts.get(selPart); return p?partKeyTimes(p.id):[]; });
+/* ═════ คัดลอก / วางท่า / วางสลับซ้าย-ขวา (ปุ่มเหนือไทม์ไลน์ + Ctrl+C / V / Shift+V) ═════ */
+function syncPoseBtns(){
+  for(const id of ['bPaste','bPasteM']) $(id).classList.toggle('off',!clipboard);
+  document.querySelector('#tlTop [data-pp=copy]').classList.toggle('got',!!clipboard);
+}
+function copyPose(){
+  const snap=poseSnap(); clipboard={};
+  for(const q of rig.parts.values()){ const d=snap[q.id];
+    clipboard[q.name]={r:q.rot.toArray(),o:q.off.toArray(),b:[...q.bend]}; if('l' in d) clipboard[q.name].l=d.l; }
+  syncPoseBtns(); say('คัดลอกท่าแล้ว — ไปเฟรมอื่นแล้วกด 📌 วาง หรือ ⇄ วางสลับ');
+}
+function pastePose(mir){
+  if(!clipboard){ say('ยังไม่ได้คัดลอกท่า — กด 📋 คัดลอก ก่อน'); return; }
+  commit();
+  for(const q of rig.parts.values()){
+    const s=clipboard[mir?swapLR(q.name):q.name]; if(!s) continue;
+    if(mir){ q.rot.set(s.r[0],-s.r[1],-s.r[2],s.r[3]); q.off.set(-s.o[0],s.o[1],s.o[2]);
+      if(s.b) q.bend=[s.b[0],-s.b[1],s.b[2]]; }
+    else{ q.rot.fromArray(s.r); q.off.fromArray(s.o); if(s.b) q.bend=[...s.b]; }
+    if('l' in s) q.lift=s.l;   // ความสูงเท้าจากพื้นไปกับท่าด้วย (สลับซ้ายขวาตามชื่อชิ้น)
+  }
+  if(autoKey) setKey(Math.round(frame));
+  closeSheet(); done(mir?'วางท่าสลับซ้าย-ขวาแล้ว':'วางท่าแล้ว');
+}
+$('tlTop').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-pp]'); if(!b) return;
+  if(b.dataset.pp==='copy') copyPose(); else pastePose(b.dataset.pp==='pastem');
+});
 $('tl').addEventListener('click',e=>{
   const t=e.target.dataset.t; if(!t) return;
   if(t==='pf'){ stopPlay(); goTo(Math.round(frame)-1); }
@@ -2528,21 +2564,8 @@ $('sheet').addEventListener('click',e=>{
     case 'del': doDelete(); break;
     case 'parent': if(p&&p.parent!=null){ selPart=p.parent; selFace=-1; closeSheet(); refreshAll(); } break;
     case 'reparent': if(p){ reparentWait=selPart; closeSheet(); say('ตอนนี้แตะกล่องที่จะเป็นชิ้นแม่'); } break;
-    case 'copy': clipboard={};
-      for(const q of rig.parts.values()) clipboard[q.name]={r:q.rot.toArray(),o:q.off.toArray(),b:[...q.bend]};
-      say('คัดลอกท่าแล้ว'); break;
-    case 'paste': case 'pastem': {
-      if(!clipboard){ say('ยังไม่ได้คัดลอกท่า'); break; }
-      const mir=(a==='pastem'); commit();
-      for(const q of rig.parts.values()){
-        const s=clipboard[mir?swapLR(q.name):q.name]; if(!s) continue;
-        if(mir){ q.rot.set(s.r[0],-s.r[1],-s.r[2],s.r[3]); q.off.set(-s.o[0],s.o[1],s.o[2]);
-          if(s.b) q.bend=[s.b[0],-s.b[1],s.b[2]]; }
-        else{ q.rot.fromArray(s.r); q.off.fromArray(s.o); if(s.b) q.bend=[...s.b]; }
-      }
-      if(autoKey) setKey(Math.round(frame));
-      closeSheet(); done(mir?'วางท่าสลับซ้าย-ขวา':'วางท่าแล้ว'); break;
-    }
+    case 'copy': copyPose(); break;
+    case 'paste': case 'pastem': pastePose(a==='pastem'); break;
     case 'addctrl': doAddControl(); break;
     case 'pivvert': if(selPart==null){ say('เลือกชิ้นก่อน'); break; }
       edgePickMode=true; edgePickFor='pivotv'; closeSheet(); say('แตะใกล้ๆ มุมกล่องที่จะใช้เป็นจุดหมุน'); break;
@@ -3065,6 +3088,8 @@ addEventListener('keydown',e=>{
     if(e.key==='ArrowRight'){ e.preventDefault(); stopPlay(); goTo(Math.round(frame)+1); return; }
     if(e.code==='Space'){ e.preventDefault(); togglePlay(); return; }
     if(k==='k'){ keyNow(); return; }
+    if((e.ctrlKey||e.metaKey)&&k==='c'){ e.preventDefault(); copyPose(); return; }
+    if((e.ctrlKey||e.metaKey)&&k==='v'){ e.preventDefault(); pastePose(e.shiftKey); return; }
   }
   if(k==='e'&&mode==='build') doExtrude();
   if(k==='s'&&mode==='build'&&selPart!=null){ commit(); snapEdges(false); }
